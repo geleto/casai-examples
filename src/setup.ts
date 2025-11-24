@@ -18,3 +18,5 @@ export const advancedModel = withProgressIndicator(
 	'Claude-4.5-Haiku',
 	showProgressIndicators
 );
+
+export const embeddingModel = openai.embedding('text-embedding-3-small');
