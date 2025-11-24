@@ -55,10 +55,14 @@ Important concepts:
 
 ## 3. Additional API Reference
 
-For the complete Casai API documentation, see:
-
-**Casai README**
+For the complete Casai API documentation, see the **Casai README**:
 [./node_modules/casai/README.md](./node_modules/casai/README.md)
+
+For the Cascada documentation, see the **Cascada README**:
+[./node_modules/cascada-engine/dist/docs/README.md](./node_modules/cascada-engine/dist/docs/README.md)
+
+For the Cascada Script documentation, see the **Cascada Script Documentation**:
+[./node_modules/cascada-script/dist/docs/script.md](./node_modules/cascada-script/dist/docs/script.md)
 
 
 ## 4. Project Structure & Conventions
