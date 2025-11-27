@@ -109,6 +109,16 @@ npm run example 4
 
 The script automatically finds and executes the matching example directory (e.g., `1-prompt-chaining`, `2-routing`, `3-parallelization`, `4-reflection`).
 
+## Cleaning Data
+
+Some examples may generate local data (e.g., vector indices, downloaded files). To clean up this generated data:
+
+```bash
+npm run clean
+```
+
+This will remove generated artifacts like the `vectra_index` directory.
+
 ## Customizing Examples
 
 ### Modifying Input Data
