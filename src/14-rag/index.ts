@@ -158,8 +158,6 @@ const ragAgent = create.Script({
 		CONCURRENCY_LIMIT
 	},
 	script: `:data
-		@data = {}
-
 		// Step 1: Retrieve Candidates (JS Helper)
 		var candidates = queryVectorDb(query)
 
