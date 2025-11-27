@@ -6,11 +6,15 @@
       "type": "node",
       "request": "launch",
       "program": "${workspaceFolder}/scripts/run-example.mjs",
-      "args": ["1"],
+      "args": [
+        "1"
+      ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "env": {
         "NODE_ENV": "development"
       }
@@ -20,25 +24,33 @@
       "type": "node",
       "request": "launch",
       "program": "${workspaceFolder}/scripts/run-example.mjs",
-      "args": ["2"],
+      "args": [
+        "2"
+      ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "env": {
         "NODE_ENV": "development"
       }
     },
     {
-      "name": "Run Example 5",
+      "name": "Run Example 14",
       "type": "node",
       "request": "launch",
       "program": "${workspaceFolder}/scripts/run-example.mjs",
-      "args": ["5"],
+      "args": [
+        "14"
+      ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "env": {
         "NODE_ENV": "development"
       }
