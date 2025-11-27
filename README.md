@@ -205,6 +205,13 @@ Demonstrates automatic parallel execution through simple for loops.
 
 Demonstrates an AI agent that improves its own output through self-critique.
 
+### Example 14: RAG (`src/14-rag/`)
+
+Demonstrates a Retrieval-Augmented Generation system with agentic filtering.
+- **Semantic Chunking**: Splits text by meaning rather than fixed size.
+- **Vector Search**: Retrieves broad candidates using cosine similarity.
+- **Agentic Filtering**: A second-pass LLM verifies relevance of each chunk to improve the context for the final answer.
+
 ## Troubleshooting
 
 **Issue: "No API key found"**
