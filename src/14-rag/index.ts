@@ -20,12 +20,13 @@ import { create } from 'casai';
 import { basicModel, advancedModel, embeddingModel } from '../setup';
 import { z } from 'zod';
 import { embed, embedMany } from 'ai';
-import { LocalIndex } from 'vectra';
 import { chunkText } from 'semachunk';
 import fs from 'fs/promises';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+//make eslint happy as vectra does not have `exports` field in package.json:
+import { LocalIndex } from 'vectra/lib/index.js';
 
 const SOTU_URL = 'https://huggingface.co/datasets/rewoo/sotu_qa_2023/resolve/main/state_of_the_union.txt';
 const INDEX_FOLDER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vectra_index');
@@ -33,7 +34,7 @@ const INPUT_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'inpu
 const CONCURRENCY_LIMIT = 20;
 
 // Initialize Vector Store
-const index = new LocalIndex<{ text: string }>(INDEX_FOLDER, 'sotu_index');
+const index: LocalIndex<{ text: string }> = new LocalIndex<{ text: string }>(INDEX_FOLDER, 'sotu_index');
 
 if (!existsSync(INDEX_FOLDER)) {
 	mkdirSync(INDEX_FOLDER, { recursive: true });
@@ -79,7 +80,7 @@ async function runIndexing() {
 	console.log('Adding chunks to database...')
 	await indexPromise;
 	let count = 0;
-	for await (const chunk of chunks) {
+	for (const chunk of chunks) {
 		await index.insertItem({
 			vector: chunk.embedding,
 			metadata: { text: chunk.text }
