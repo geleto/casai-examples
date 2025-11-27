@@ -1,6 +1,5 @@
 /**
  * RAG (RETRIEVAL-AUGMENTED GENERATION) PATTERN EXAMPLE
- *
  * Demonstrates building an intelligent knowledge retrieval system.
  *
  * HOW IT WORKS:
@@ -28,25 +27,23 @@ import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// --- Constants & Configuration ---
-
 const SOTU_URL = 'https://huggingface.co/datasets/rewoo/sotu_qa_2023/resolve/main/state_of_the_union.txt';
 const INDEX_FOLDER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vectra_index');
 const INPUT_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'input.txt');
 const CONCURRENCY_LIMIT = 20;
 
+// Initialize Vector Store
+const index = new LocalIndex<{ text: string }>(INDEX_FOLDER, 'sotu_index');
+
 if (!existsSync(INDEX_FOLDER)) {
 	mkdirSync(INDEX_FOLDER, { recursive: true });
 }
-
-// --- Helper Functions ---
 
 const batchEmbed = async (texts: string[]) => {
 	const { embeddings } = await embedMany({
 		model: embeddingModel,
 		values: texts,
 	});
-	console.log(texts);
 	return embeddings;
 };
 
@@ -55,14 +52,8 @@ const singleEmbed = async (text: string) => {
 		model: embeddingModel,
 		value: text,
 	});
-	console.log(text);
 	return embedding;
 };
-
-// Initialize Vector Store
-const index = new LocalIndex<{ text: string }>(INDEX_FOLDER, 'sotu_index');
-
-// --- PHASE 1: Indexing (Standard JS) ---
 
 async function runIndexing() {
 	if (await index.isIndexCreated()) {
@@ -77,15 +68,16 @@ async function runIndexing() {
 		throw new Error('Failed to download State of the Union text.');
 	}
 
-	await index.createIndex();
+	//Create index in background while chunking text
+	const indexPromise = index.createIndex();
 
 	console.log('Chunking text semantically...');
-
 	const chunks = await chunkText(fullText, batchEmbed, {
 		similarityThreshold: 0.6
 	});
 
 	console.log('Adding chunks to database...')
+	await indexPromise;
 	let count = 0;
 	for await (const chunk of chunks) {
 		await index.insertItem({
@@ -98,10 +90,7 @@ async function runIndexing() {
 	console.log(`\nIndexed ${count} semantic chunks.`);
 }
 
-// --- Casai Components ---
-
-// 1. Relevance Analyzer
-// Acts as a "Gatekeeper". Vector search finds things that *look* similar,
+// relevanceFilter - Acts as a "Gatekeeper". Vector search finds things that *look* similar,
 // but this component reads the text to ensure it actually answers the question.
 const relevanceFilter = create.ObjectGenerator.withTemplate({
 	model: basicModel,
@@ -122,8 +111,7 @@ CHUNK:
 {{ chunkText }}`,
 });
 
-// 2. synthesizeAnswer
-// Generates the final answer using only the verified context.
+// synthesizeAnswer - Generates the final answer using only the verified context.
 const synthesizeAnswer = create.TextGenerator.withTemplate({
 	model: advancedModel,
 	inputSchema: z.object({
@@ -144,8 +132,6 @@ VERIFIED CONTEXT:
 ANSWER:`,
 });
 
-// --- PHASE 2: Retrieval Agent (Cascada Script) ---
-
 // JS Helper to interface with Vectra
 async function queryVectorDb(query: string): Promise<string[]> {
 	const queryVector = await singleEmbed(query);
@@ -156,10 +142,9 @@ async function queryVectorDb(query: string): Promise<string[]> {
 
 const ragAgent = create.Script({
 	inputSchema: z.object({
-		query: z.string().optional() // Optional so we can run it without args to read from file
+		query: z.string()
 	}),
 	schema: z.object({
-		query: z.string(),
 		stats: z.object({
 			found: z.number(),
 			verified: z.number()
@@ -170,19 +155,13 @@ const ragAgent = create.Script({
 		relevanceFilter,
 		synthesizeAnswer,
 		queryVectorDb,
-		readQuery: async () => await fs.readFile(INPUT_FILE, 'utf-8'),
 		CONCURRENCY_LIMIT
 	},
 	script: `:data
 		@data = {}
-		// Use provided query or read from file
-		var queryText = query
-		if not queryText
-			queryText = readQuery()
-		endif
 
 		// Step 1: Retrieve Candidates (JS Helper)
-		var candidates = queryVectorDb(queryText)
+		var candidates = queryVectorDb(query)
 
 		// Step 2: Agentic Filtering (Parallel Loop)
 		// Evaluate all candidates in parallel (up to CONCURRENCY_LIMIT).
@@ -190,7 +169,7 @@ const ragAgent = create.Script({
 			@data = []
 			for text in candidates of CONCURRENCY_LIMIT
 				var check = relevanceFilter({
-					query: queryText,
+					query: query,
 					chunkText: text
 				}).object
 
@@ -202,28 +181,20 @@ const ragAgent = create.Script({
 
 		// Step 3: Synthesize Answer
 		var answer = synthesizeAnswer({
-			query: queryText,
+			query: query,
 			chunks: verifiedChunks
 		}).text
 
 		// Output Result
-		@data.query = queryText
-		@data.stats = {}
 		@data.stats.found = candidates.length
 		@data.stats.verified = verifiedChunks.length
-		@data.answer = answer
-
-	`
+		@data.answer = answer`
 });
 
-// --- Main Execution ---
-
-console.log('--- Phase 1: Knowledge Base Setup ---');
 await runIndexing();
-
-console.log('\n--- Phase 2: RAG Agent Execution ---');
-const result = await ragAgent({ query: '' });
-
-console.log(`Q: ${result.query}`);
+console.log('\n--- RAG Agent Starts ---');
+const query = await fs.readFile(INPUT_FILE, 'utf-8');
+const result = await ragAgent({ query });
+console.log(`Q: ${query}`);
 console.log(`Stats: Retrieved ${result.stats.found} candidates, Verified ${result.stats.verified} as relevant.`);
 console.log(`\nAnswer:\n${result.answer}\n`);
