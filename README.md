@@ -190,30 +190,35 @@ const agent = create.Script({
 ## Examples Overview
 
 ### Example 1: Prompt Chaining ([src/1-prompt-chaining/index.ts](src/1-prompt-chaining/index.ts))
+Generates a blog article by sequentially researching facts, creating an outline, writing the content, and generating a title.
 Demonstrates breaking down a complex task into a sequence of simpler steps.
 - **Linear Workflow**: Executes steps in order: Research → Outline → Write → Title.
 - **State Management**: Passes outputs from one step as inputs to the next.
 - **Separation of Concerns**: Each step focuses on a specific sub-task for better quality.
 
 ### Example 2: Routing ([src/2-routing/index.ts](src/2-routing/index.ts))
+Acts as a customer support agent that classifies inquiries (technical, billing, etc.) and routes them to specialized handlers with appropriate tones.
 Demonstrates routing different types of inputs to specialized handlers.
 - **Classification**: Uses an LLM to categorize inquiries (Technical, Billing, General, Urgent).
 - **Specialized Handlers**: Routes to specific prompts/configs optimized for each category.
 - **Conditional Logic**: Uses `switch` or `if/else` logic to direct control flow.
 
 ### Example 3: Parallelization ([src/3-parallelization/index.ts](src/3-parallelization/index.ts))
+Performs market analysis by finding and analyzing stocks in multiple markets simultaneously, then ranking them based on calculated scores.
 Demonstrates automatic parallel execution through simple for loops.
 - **Automatic Concurrency**: Cascada automatically parallelizes independent iterations in `for` loops.
 - **Hybrid Logic**: Combines LLM generation (finding/analyzing stocks) with JS logic (ranking/filtering).
 - **Structured Data**: Collects and processes structured data from multiple parallel streams.
 
 ### Example 4: Reflection ([src/4-reflection/index.ts](src/4-reflection/index.ts))
+Iteratively improves a blog post by generating a draft, critiquing it against a quality threshold, and revising it based on specific feedback.
 Demonstrates an AI agent that improves its own output through self-critique.
 - **Self-Correction Loop**: Generates a draft, critiques it, and revises based on feedback.
 - **Quality Control**: Continues revising until a quality threshold is met or max revisions reached.
 - **Structured Feedback**: Uses specific scoring and suggestions to guide improvements.
 
 ### Example 5: Tool Use ([src/5-tool/index.ts](src/5-tool/index.ts))
+Answers weather queries by orchestrating multiple tools: geocoding locations, interpreting relative dates (e.g., "next Friday"), and fetching forecast data.
 Demonstrates how to create custom tools that LLMs can use to solve problems.
 - **LLM-Powered Tools**: Creates a tool that uses an LLM to interpret natural language (time references).
 - **API Integration**: Connects to external weather and geocoding APIs.
@@ -239,6 +244,7 @@ TODO
 --->
 
 ### Example 14: RAG ([src/14-rag/index.ts](src/14-rag/index.ts))
+Answers questions about a document by retrieving vector matches, verifying their relevance with an LLM filter, and synthesizing an answer from verified chunks.
 Demonstrates a Retrieval-Augmented Generation system with agentic filtering.
 - **Semantic Chunking**: Splits text by meaning rather than fixed size.
 - **Vector Search**: Retrieves broad candidates using cosine similarity.
