@@ -5,13 +5,13 @@
  *
  * HOW IT WORKS:
  * 1. Setup Phase: Downloads text, chunks it semantically, and indexes it using Vectra.
+ *    - Implemented in pure JS as requested to handle raw chunks directly.
  * 2. Query Phase:
  *    - Retrieves broad candidates from Vector DB based on cosine similarity.
  *    - Agentic Filter: Uses LLM to verify relevance of every candidate in parallel.
  *    - Synthesizes final answer from verified chunks only.
  *
  * KEY CONCEPTS:
- * - "Parallel by Default, Sequential by Exception": Using `db!.insert` to handle file-system DB locks.
  * - Agentic RAG: A second-pass LLM filter ("Relevance Analyzer") reduces hallucinations by
  *   discarding vector matches that are semantically similar but factually irrelevant.
  * - Semantic Chunking: Using `semantic-chunker` to break text by meaning, not just lines.
@@ -20,9 +20,9 @@
 import { create } from 'casai';
 import { basicModel, advancedModel, embeddingModel } from '../setup';
 import { z } from 'zod';
-import { embed } from 'ai';
+import { embed, embedMany } from 'ai';
 import { LocalIndex } from 'vectra';
-import semantic from 'semantic-chunker';
+import { chunkText } from 'semachunk';
 import fs from 'fs/promises';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
@@ -30,50 +30,72 @@ import { fileURLToPath } from 'url';
 
 // --- Constants & Configuration ---
 
-const SOTU_URL = 'https://raw.githubusercontent.com/langchain-ai/langchain/master/docs/docs/how_to/state_of_the_union.txt';
-const INDEX_FOLDER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'index');
+const SOTU_URL = 'https://huggingface.co/datasets/rewoo/sotu_qa_2023/resolve/main/state_of_the_union.txt';
+const INDEX_FOLDER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vectra_index');
 const INPUT_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'input.txt');
+const CONCURRENCY_LIMIT = 20;
 
 if (!existsSync(INDEX_FOLDER)) {
 	mkdirSync(INDEX_FOLDER, { recursive: true });
 }
 
-// --- Type Definitions for Vectra ---
-
-interface ChunkMetadata extends Record<string, string | number | boolean> {
-	text: string;
-}
-
 // --- Helper Functions ---
 
-const embeddingFunction = async (text: string) => {
+const batchEmbed = async (texts: string[]) => {
+	const { embeddings } = await embedMany({
+		model: embeddingModel,
+		values: texts,
+	});
+	console.log(texts);
+	return embeddings;
+};
+
+const singleEmbed = async (text: string) => {
 	const { embedding } = await embed({
 		model: embeddingModel,
 		value: text,
 	});
+	console.log(text);
 	return embedding;
 };
 
 // Initialize Vector Store
-const index = new LocalIndex<ChunkMetadata>(INDEX_FOLDER, 'sotu_index');
+const index = new LocalIndex<{ text: string }>(INDEX_FOLDER, 'sotu_index');
 
-// Download and Chunk text (Runs in standard JS before the agent script)
-async function getRawChunks() {
+// --- PHASE 1: Indexing (Standard JS) ---
+
+async function runIndexing() {
+	if (await index.isIndexCreated()) {
+		console.log('Vector index found. Skipping build.');
+		return;
+	}
+
 	console.log('Downloading State of the Union...');
 	const response = await fetch(SOTU_URL);
 	const fullText = await response.text();
+	if (fullText.length < 1000) {
+		throw new Error('Failed to download State of the Union text.');
+	}
+
+	await index.createIndex();
 
 	console.log('Chunking text semantically...');
-	const chunker = semantic({
-		embed: embeddingFunction,
-		zScoreThreshold: 2.0 // Adjust for chunk granularity
+
+	const chunks = await chunkText(fullText, batchEmbed, {
+		similarityThreshold: 0.6
 	});
 
-	const chunks: { text: string, vector: number[] }[] = [];
-	for await (const chunk of chunker(fullText)) {
-		chunks.push({ text: chunk[0], vector: chunk[1] });
+	console.log('Adding chunks to database...')
+	let count = 0;
+	for await (const chunk of chunks) {
+		await index.insertItem({
+			vector: chunk.embedding,
+			metadata: { text: chunk.text }
+		});
+		process.stdout.write('.');
+		count++;
 	}
-	return chunks;
+	console.log(`\nIndexed ${count} semantic chunks.`);
 }
 
 // --- Casai Components ---
@@ -88,8 +110,8 @@ const relevanceFilter = create.ObjectGenerator.withTemplate({
 		chunkText: z.string()
 	}),
 	schema: z.object({
-		isRelevant: z.boolean(),
-		reasoning: z.string().describe('Short explanation of why this is or is not relevant')
+		reasoning: z.string().describe('Short explanation of why this is or is not relevant'),
+		isRelevant: z.boolean()
 	}),
 	prompt: `We are answering the query: "{{ query }}"
 
@@ -100,9 +122,9 @@ CHUNK:
 {{ chunkText }}`,
 });
 
-// 2. Synthesizer
+// 2. synthesizeAnswer
 // Generates the final answer using only the verified context.
-const synthesizer = create.TextGenerator.withTemplate({
+const synthesizeAnswer = create.TextGenerator.withTemplate({
 	model: advancedModel,
 	inputSchema: z.object({
 		query: z.string(),
@@ -122,68 +144,20 @@ VERIFIED CONTEXT:
 ANSWER:`,
 });
 
-// --- Workflow 1: Indexing Agent (Cascada Script) ---
-
-const indexingAgent = create.Script({
-	inputSchema: z.object({
-		rawChunks: z.array(z.object({
-			text: z.string(),
-			vector: z.array(z.number())
-		}))
-	}),
-	context: {
-		// Expose vector DB wrapper
-		db: {
-			// This method will be called sequentially via !
-			insert: async (item: { vector: number[]; text: string }) => {
-				await index.insertItem({
-					vector: item.vector,
-					metadata: { text: item.text }
-				});
-				process.stdout.write('.');
-			}
-		}
-	},
-	script: `:data
-		// 'rawChunks' is passed in as an argument to the script
-		for chunk in rawChunks
-			// The '!' operator on 'db!' enforces strict sequential order for this specific path.
-			// This prevents file-lock errors in Vectra (a file-based DB).
-			db!.insert({
-				vector: chunk.vector,
-				text: chunk.text
-			})
-		endfor
-	`
-});
-
-async function runIndexing() {
-	if (await index.isIndexCreated()) {
-		console.log('Vector index found. Skipping build.');
-		return;
-	}
-
-	await index.createIndex();
-
-	const chunks = await getRawChunks();
-	console.log(`Indexing ${chunks.length} chunks...`);
-
-	// Run the Cascada script
-	await indexingAgent({ rawChunks: chunks });
-	console.log('\nIndexing complete.');
-}
-
-// --- Workflow 2: Retrieval Agent (Cascada Script) ---
+// --- PHASE 2: Retrieval Agent (Cascada Script) ---
 
 // JS Helper to interface with Vectra
 async function queryVectorDb(query: string): Promise<string[]> {
-	const queryVector = await embeddingFunction(query);
+	const queryVector = await singleEmbed(query);
 	// Retrieve top 20 items (Broad Search)
 	const results = await index.queryItems(queryVector, query, 20);
 	return results.map(r => r.item.metadata.text);
 }
 
 const ragAgent = create.Script({
+	inputSchema: z.object({
+		query: z.string().optional() // Optional so we can run it without args to read from file
+	}),
 	schema: z.object({
 		query: z.string(),
 		stats: z.object({
@@ -194,24 +168,29 @@ const ragAgent = create.Script({
 	}),
 	context: {
 		relevanceFilter,
-		synthesizer,
+		synthesizeAnswer,
 		queryVectorDb,
 		readQuery: async () => await fs.readFile(INPUT_FILE, 'utf-8'),
+		CONCURRENCY_LIMIT
 	},
 	script: `:data
-		var query = readQuery()
+		@data = {}
+		// Use provided query or read from file
+		var queryText = query
+		if not queryText
+			queryText = readQuery()
+		endif
 
 		// Step 1: Retrieve Candidates (JS Helper)
-		var candidates = queryVectorDb(query)
+		var candidates = queryVectorDb(queryText)
 
 		// Step 2: Agentic Filtering (Parallel Loop)
-		// We verify every candidate in parallel. If the vector DB returned 20 items,
-		// we run 20 LLM checks concurrently here.
+		// Evaluate all candidates in parallel (up to CONCURRENCY_LIMIT).
 		var verifiedChunks = capture :data
 			@data = []
-			for text in candidates
+			for text in candidates of CONCURRENCY_LIMIT
 				var check = relevanceFilter({
-					query: query,
+					query: queryText,
 					chunkText: text
 				}).object
 
@@ -222,18 +201,18 @@ const ragAgent = create.Script({
 		endcapture
 
 		// Step 3: Synthesize Answer
-		var answer = synthesizer({
-			query: query,
+		var answer = synthesizeAnswer({
+			query: queryText,
 			chunks: verifiedChunks
 		}).text
 
 		// Output Result
-		@data.query = query
-		@data.stats = {
-			found: candidates.length,
-			verified: verifiedChunks.length
-		}
+		@data.query = queryText
+		@data.stats = {}
+		@data.stats.found = candidates.length
+		@data.stats.verified = verifiedChunks.length
 		@data.answer = answer
+
 	`
 });
 
@@ -243,7 +222,7 @@ console.log('--- Phase 1: Knowledge Base Setup ---');
 await runIndexing();
 
 console.log('\n--- Phase 2: RAG Agent Execution ---');
-const result = await ragAgent();
+const result = await ragAgent({ query: '' });
 
 console.log(`Q: ${result.query}`);
 console.log(`Stats: Retrieved ${result.stats.found} candidates, Verified ${result.stats.verified} as relevant.`);
