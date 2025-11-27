@@ -189,47 +189,82 @@ const agent = create.Script({
 
 ## Examples Overview
 
-### Example 1: Prompt Chaining (`src/1-prompt-chaining/`)
-
+### Example 1: Prompt Chaining ([src/1-prompt-chaining/index.ts](src/1-prompt-chaining/index.ts))
 Demonstrates breaking down a complex task into a sequence of simpler steps.
 - **Linear Workflow**: Executes steps in order: Research → Outline → Write → Title.
 - **State Management**: Passes outputs from one step as inputs to the next.
 - **Separation of Concerns**: Each step focuses on a specific sub-task for better quality.
 
-### Example 2: Routing (`src/2-routing/`)
-
+### Example 2: Routing ([src/2-routing/index.ts](src/2-routing/index.ts))
 Demonstrates routing different types of inputs to specialized handlers.
 - **Classification**: Uses an LLM to categorize inquiries (Technical, Billing, General, Urgent).
 - **Specialized Handlers**: Routes to specific prompts/configs optimized for each category.
 - **Conditional Logic**: Uses `switch` or `if/else` logic to direct control flow.
 
-### Example 3: Parallelization (`src/3-parallelization/`)
-
+### Example 3: Parallelization ([src/3-parallelization/index.ts](src/3-parallelization/index.ts))
 Demonstrates automatic parallel execution through simple for loops.
 - **Automatic Concurrency**: Cascada automatically parallelizes independent iterations in `for` loops.
 - **Hybrid Logic**: Combines LLM generation (finding/analyzing stocks) with JS logic (ranking/filtering).
 - **Structured Data**: Collects and processes structured data from multiple parallel streams.
 
-### Example 4: Reflection (`src/4-reflection/`)
-
+### Example 4: Reflection ([src/4-reflection/index.ts](src/4-reflection/index.ts))
 Demonstrates an AI agent that improves its own output through self-critique.
 - **Self-Correction Loop**: Generates a draft, critiques it, and revises based on feedback.
 - **Quality Control**: Continues revising until a quality threshold is met or max revisions reached.
 - **Structured Feedback**: Uses specific scoring and suggestions to guide improvements.
 
-### Example 5: Tool Use (`src/5-tool/`)
-
+### Example 5: Tool Use ([src/5-tool/index.ts](src/5-tool/index.ts))
 Demonstrates how to create custom tools that LLMs can use to solve problems.
 - **LLM-Powered Tools**: Creates a tool that uses an LLM to interpret natural language (time references).
 - **API Integration**: Connects to external weather and geocoding APIs.
 - **Tool Composition**: Shows an agent combining multiple tools to answer complex queries.
 
-### Example 14: RAG (`src/14-rag/`)
+<!---
+### Example 6: Planning
+TODO
+### Example 7: Multi-Agent
+TODO
+### Example 8: Memory Management
+TODO
+### Example 9: Learning and Adaptation
+TODO
+### Example 10: Model Context Protocol (MCP)
+TODO
+### Example 11: Goal Setting and Monitoring
+TODO
+### Example 12: Exception Handling and Recovery
+TODO
+### Example 13: Human-in-the-Loop
+TODO
+--->
 
+### Example 14: RAG ([src/14-rag/index.ts](src/14-rag/index.ts))
 Demonstrates a Retrieval-Augmented Generation system with agentic filtering.
 - **Semantic Chunking**: Splits text by meaning rather than fixed size.
 - **Vector Search**: Retrieves broad candidates using cosine similarity.
 - **Agentic Filtering**: A second-pass LLM verifies relevance of each chunk to improve the context for the final answer.
+
+<!---
+### Example 15: Inter-Agent Communication (A2A)
+TODO
+### Example 16: Resource-Aware Optimization
+TODO
+
+### Example 17: Reasoning Techniques
+TODO
+
+### Example 18: Guardrails/Safety Patterns
+TODO
+
+### Example 19: Evaluation and Monitoring
+TODO
+
+### Example 20: Prioritization
+TODO
+
+### Example 21: Exploration and Discovery
+TODO
+--->
 
 ## Troubleshooting
 
