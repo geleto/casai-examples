@@ -180,38 +180,6 @@ function extractSchemaSummary(dbPath: string, datasetName: string): string {
 let dataPointCounter = 1;
 
 /**
- * Build a SQL query from a natural-language dataRequest and schema summary.
- * - If dataRequest already looks like SQL, return it directly.
- * - Otherwise, fall back to selecting from the first table in the schema.
- */
-function buildSqlFromRequest(
-	dataRequest: string,
-	schemaSummary: string
-): string {
-	const trimmed = dataRequest.trim();
-
-	// If the request already looks like SQL, trust it.
-	if (
-		/^\s*select\b/i.test(trimmed) ||
-		/^\s*with\b/i.test(trimmed) ||
-		/\bfrom\b/i.test(trimmed)
-	) {
-		return trimmed;
-	}
-
-	// Very simple heuristic: fall back to the first table in the schema.
-	const firstTableMatch = FIRST_TABLE_REGEX.exec(schemaSummary);
-	const firstTable = firstTableMatch ? firstTableMatch[1] : null;
-
-	if (firstTable) {
-		return `SELECT * FROM ${firstTable} LIMIT 500`;
-	}
-
-	// Extreme fallback: list tables.
-	return "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
-}
-
-/**
  * Replacer for JSON.stringify used in preview JSON.
  * Ensures bigint and Date values are serialized safely.
  */
@@ -225,6 +193,39 @@ function previewReplacer(_key: string, value: unknown): unknown {
 	}
 	return value;
 }
+
+/**
+ * LLM-powered SQL generator.
+ * Takes a natural-language data request plus schema/context and returns
+ * a single SQLite SELECT query as plain text.
+ */
+const sqlFromRequestGenerator = create.TextGenerator.withTemplate({
+	model: advancedModel,
+	temperature: 0,
+	prompt: `
+You are a SQL generator for a SQLite database.
+
+You are given:
+- Dataset description:
+{{ datasetDescription }}
+
+- SQLite schema summary:
+{{ schemaSummary }}
+
+- Natural language data request:
+{{ dataRequest }}
+
+Your task:
+- Write a single, syntactically valid SQLite SELECT query that best satisfies the data request.
+- Only use tables and columns that appear in the schema summary.
+- Prefer reasonably small result sets suitable for previews (use LIMIT when appropriate).
+- Do not explain the query.
+- Do not surround it with backticks or any other formatting.
+- Do not include comments.
+
+Return ONLY the SQL SELECT statement.
+`.trim(),
+});
 
 const dataTool = create.Function.asTool({
 	description:
@@ -242,7 +243,7 @@ const dataTool = create.Function.asTool({
 		dataRequest: z
 			.string()
 			.describe(
-				'Natural-language description of the data needed OR an explicit SQL query (SELECT ...).'
+				'Natural-language description of the data needed. Do NOT provide SQL; this tool will translate the request into a SQLite SELECT query internally.'
 			),
 	}),
 	execute: async ({
@@ -258,26 +259,33 @@ const dataTool = create.Function.asTool({
 	}) => {
 		ensureDataDir();
 
-		// 1. Load input.json to get the authoritative datasetName + databaseUrl.
-		const input = await loadInput();
-		const authoritativeDatasetName = input.datasetName;
+		// 1. Resolve DB path and ensure it exists.
+		//    The database MUST have been downloaded during initialization
+		//    (before the planner runs).
+		const authoritativeDatasetName = datasetName;
+		const dbPath = getDbPath(authoritativeDatasetName);
 
-		if (datasetName && datasetName !== authoritativeDatasetName) {
-			console.warn(
-				`[dataTool] datasetName mismatch. Using "${authoritativeDatasetName}" from input.json instead of "${datasetName}".`
+		if (!existsSync(dbPath)) {
+			throw new Error(
+				`[dataTool] Database file not found at ${dbPath}. It should be downloaded during initialization before invoking the planner.`
 			);
 		}
 
-		// 2. Ensure DB is present on disk.
-		const dbPath = await downloadDatabaseIfMissing(
-			authoritativeDatasetName,
-			input.databaseUrl
-		);
+		// 2. Use LLM to build the SQL query from the natural-language dataRequest.
+		const sqlResult = await sqlFromRequestGenerator({
+			datasetDescription,
+			schemaSummary,
+			dataRequest,
+		});
+		const sql = sqlResult.text.trim();
 
-		// 3. Build and execute SQL.
-		const sql = buildSqlFromRequest(dataRequest, schemaSummary);
-		console.log(`[dataTool] Executing SQL:\n${sql}\n`);
+		if (!sql) {
+			throw new Error('[dataTool] SQL generator returned an empty query.');
+		}
 
+		console.log(`[dataTool] Executing SQL generated from natural-language request:\n${sql}\n`);
+
+		// 3. Execute SQL against the local SQLite DB.
 		const db = openReadonlyDatabase(dbPath);
 		let rows: unknown[];
 		try {
@@ -328,7 +336,7 @@ const plannerAgent = create.TextGenerator.withTemplate({
 	temperature: 0.2,
 	tools: { dataTool },
 	//maxSteps: 8,
-	stopWhen: stepCountIs(16),
+	stopWhen: stepCountIs(32),
 	prompt: `
 You are a planning agent that designs interactive data dashboards.
 
@@ -347,12 +355,12 @@ Your job:
   - datasetName
   - datasetDescription
   - schemaSummary
-  - dataRequest: a clear natural-language description OR a concrete SQL query you want executed.
+  - dataRequest: a clear natural-language description of the data you want (never SQL).
 - Use only the fields in the previewJson when later referring to data fields in descriptions.
 
 Output:
 - A single text block that follows the dashboard plan format EXACTLY as described below.
-- Do NOT generate HTML, JavaScript, or SQL in the plan, except if you choose to put SQL into dataRequest.
+- Do NOT generate HTML, JavaScript, or SQL anywhere in the plan. The dataRequest field must be pure natural language; the tool will handle SQL generation internally.
 
 Required dashboard plan format (you MUST follow this structure):
 
@@ -395,6 +403,7 @@ previewJson:
 Rules:
 - Number elements sequentially (Element 1, Element 2, Element 3, ...).
 - At least one element MUST have usesData: yes and must actually call dataTool.
+- All dataTool calls MUST pass a purely natural-language dataRequest. Do NOT include SQL keywords like SELECT, FROM, WHERE, GROUP BY, etc.
 - Insert the exact dataFile and previewJson from the tool result into the corresponding element.
 - Do not output anything before "DASHBOARD PLAN" or after the last element.
 `.trim(),
