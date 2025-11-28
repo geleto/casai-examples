@@ -55,7 +55,6 @@ const __dirname = path.dirname(__filename);
 const INPUT_PATH = path.join(__dirname, 'input.json');
 const DATA_DIR = path.join(__dirname, 'data');
 const OUTPUT_HTML = path.join(__dirname, 'dashboard.html');
-const FIRST_TABLE_REGEX = /\n\s*\d+\.\s+([A-Za-z0-9_]+)/;
 const rawBetterSqlite3: unknown = BetterSqlite3;
 
 // ---------------------------------------------------------------------------
@@ -243,12 +242,12 @@ const dataTool = create.Function.asTool({
 		dataRequest: z
 			.string()
 			.describe(
-				'Natural-language description of the data needed. Do NOT provide SQL; this tool will translate the request into a SQLite SELECT query internally.'
+				'Natural-language description of the data needed. This tool will translate the request into a SQLite SELECT query internally.'
 			),
 	}),
 	execute: async ({
 		datasetName,
-		datasetDescription, // eslint-disable-line @typescript-eslint/no-unused-vars
+		datasetDescription,
 		schemaSummary,
 		dataRequest,
 	}: {
@@ -499,77 +498,81 @@ const HTML_WRAPPER_TEMPLATE = `<!DOCTYPE html>
 `;
 
 // ---------------------------------------------------------------------------
-// Script orchestration (Cascada Script)
+// Script orchestration (plain JS)
 // ---------------------------------------------------------------------------
 
-const dashboardOrchestrator = create.Script({
-	context: {
-		console,
-		loadInput,
-		downloadDatabaseIfMissing,
-		extractSchemaSummary,
-		plannerAgent,
-		dashboardBodyGenerator,
-		wrapHtml: (body: string) =>
-			HTML_WRAPPER_TEMPLATE.replace('{{BODY_PLACEHOLDER}}', body),
-		writeDashboard: (html: string) => {
-			writeFileSync(OUTPUT_HTML, html, 'utf-8');
-		},
-		OUTPUT_HTML,
-	},
-	script: `:data
-    console.log("Casai Planning Pattern Example: Dashboard Generator")
+function wrapHtml(body: string): string {
+	return HTML_WRAPPER_TEMPLATE.replace('{{BODY_PLACEHOLDER}}', body);
+}
 
-    // 1. Load input.json
-    var input = loadInput()
-    console.log("Loaded input.json for dataset:", input.datasetName)
-    console.log("User request:", input.userRequest)
+function writeDashboard(html: string): void {
+	writeFileSync(OUTPUT_HTML, html, 'utf-8');
+}
 
-    // 2. Ensure DB exists
-    var dbPath = downloadDatabaseIfMissing(input.datasetName, input.databaseUrl)
+async function dashboardOrchestrator(): Promise<{
+	outputFile?: string;
+	plan?: string;
+}> {
+	console.log('Casai Planning Pattern Example: Dashboard Generator');
 
-    // 3. Extract schema summary
-    var schemaSummary = extractSchemaSummary(dbPath, input.datasetName)
-    console.log("\\n=== Schema Summary ===\\n")
-    console.log(schemaSummary)
+	// 1. Load input.json
+	const input = await loadInput();
+	console.log('Loaded input.json for dataset:', input.datasetName);
+	console.log('User request:', input.userRequest);
 
-    // 4. Run planner
-    console.log("\\nRunning planner LLM...\\n")
-    var planText = plannerAgent({
-        datasetName: input.datasetName,
-        datasetDescription: input.datasetDescription,
-        userRequest: input.userRequest,
-        schemaSummary: schemaSummary
-    }).text
+	// 2. Ensure DB exists
+	const dbPath = await downloadDatabaseIfMissing(
+		input.datasetName,
+		input.databaseUrl
+	);
 
-    if !planText or planText.trim().indexOf("DASHBOARD PLAN") != 0
-        console.log("[WARN] Planner output does not start with 'DASHBOARD PLAN'. The generator will still attempt to use it.")
-    endif
+	// 3. Extract schema summary
+	const schemaSummary = extractSchemaSummary(dbPath, input.datasetName);
+	console.log('\n=== Schema Summary ===\n');
+	console.log(schemaSummary);
 
-    console.log("\\n=== DASHBOARD PLAN ===\\n")
-    console.log(planText)
+	// 4. Run planner
+	console.log('\nRunning planner LLM...\n');
+	const planResult = await plannerAgent({
+		datasetName: input.datasetName,
+		datasetDescription: input.datasetDescription,
+		userRequest: input.userRequest,
+		schemaSummary,
+	});
+	const planText = planResult.text;
 
-    // 5. Run generator
-    console.log("\\nRunning generator LLM...\\n")
-    var bodyHtml = dashboardBodyGenerator({
-        datasetName: input.datasetName,
-        datasetDescription: input.datasetDescription,
-        userRequest: input.userRequest,
-        schemaSummary: schemaSummary,
-        plan: planText
-    }).text
+	if (!planText.trim().startsWith('DASHBOARD PLAN')) {
+		console.log(
+			"[WARN] Planner output does not start with 'DASHBOARD PLAN'. The generator will still attempt to use it."
+		);
+	}
 
-    // 6. Wrap and save final HTML
-    var finalHtml = wrapHtml(bodyHtml)
-    writeDashboard(finalHtml)
+	console.log('\n=== DASHBOARD PLAN ===\n');
+	console.log(planText);
 
-    console.log("\\nDashboard written to:", OUTPUT_HTML)
-    console.log("Open this file in your browser to view the generated dashboard.")
+	// 5. Run generator
+	console.log('\nRunning generator LLM...\n');
+	const bodyResult = await dashboardBodyGenerator({
+		datasetName: input.datasetName,
+		datasetDescription: input.datasetDescription,
+		userRequest: input.userRequest,
+		schemaSummary,
+		plan: planText,
+	});
+	const bodyHtml = bodyResult.text;
 
-    @data.plan = planText
-    @data.outputFile = "dashboard.html"
-    `,
-});
+	// 6. Wrap and save final HTML
+	const finalHtml = wrapHtml(bodyHtml);
+	writeDashboard(finalHtml);
+
+	console.log('\nDashboard written to:', OUTPUT_HTML);
+	console.log('Open this file in your browser to view the generated dashboard.');
+
+	return {
+		plan: planText,
+		outputFile: 'dashboard.html',
+	};
+}
 
 // ---------------------------------------------------------------------------
 // Execution entrypoint
@@ -577,7 +580,7 @@ const dashboardOrchestrator = create.Script({
 
 console.log('--- Dashboard Planning Example ---');
 try {
-	const result = await dashboardOrchestrator() as { outputFile?: string; plan?: string };
+	const result = await dashboardOrchestrator();
 	console.log('\n--- Execution Complete ---');
 	if (result.outputFile) {
 		console.log(`Generated dashboard: ${OUTPUT_HTML}`);
