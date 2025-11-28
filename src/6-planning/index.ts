@@ -125,8 +125,9 @@ function extractSchemaSummary(dbPath: string, datasetName: string): string {
 
 		tables.forEach((table, idx) => {
 			const tableName = table.name;
+			const escaped = tableName.replace(/"/g, '""');
 			const pragmaRows = db
-				.prepare(`PRAGMA table_info(${tableName})`)
+				.prepare(`PRAGMA table_info("${escaped}")`)
 				.all() as {
 					cid: number;
 					name: string;
@@ -186,7 +187,7 @@ function buildSqlFromRequest(
 	}
 
 	// Extreme fallback: list tables.
-	return "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name";
+	return "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
 }
 
 /**
@@ -305,7 +306,7 @@ const plannerAgent = create.TextGenerator.withTemplate({
 	model: advancedModel,
 	temperature: 0.2,
 	tools: { dataTool },
-	maxSteps: 8,
+	//maxSteps: 8,
 	stopWhen: stepCountIs(16),
 	prompt: `
 You are a planning agent that designs interactive data dashboards.
@@ -510,7 +511,7 @@ const dashboardOrchestrator = create.Script({
         schemaSummary: schemaSummary
     }).text
 
-    if !planText or planText.indexOf("DASHBOARD PLAN") != 0
+    if !planText or planText.trim().indexOf("DASHBOARD PLAN") != 0
         console.log("[WARN] Planner output does not start with 'DASHBOARD PLAN'. The generator will still attempt to use it.")
     endif
 
