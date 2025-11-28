@@ -1,0 +1,6 @@
+{
+	"datasetName": "chinook",
+	"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
+	"databaseUrl": "https://example.com/chinook.db",
+	"userRequest": "Create a sales analytics dashboard showing revenue by genre, revenue by country, a monthly sales trend, and a table of top customers with their total spend."
+}
