@@ -58,7 +58,7 @@ function getDbPath(datasetName: string): string {
 
 async function loadInput(): Promise<DashboardInput> {
 	const raw = await fs.readFile(INPUT_PATH, 'utf-8');
-	const parsed = JSON.parse(raw);
+	const parsed = JSON.parse(raw) as DashboardInput;
 
 	if (
 		!parsed.datasetName ||
@@ -71,7 +71,7 @@ async function loadInput(): Promise<DashboardInput> {
 		);
 	}
 
-	return parsed as DashboardInput;
+	return parsed;
 }
 
 /**
@@ -275,7 +275,7 @@ const dataTool = create.Function.asTool({
 
 		// 5. Build preview JSON according to truncation rules:
 		//    - Show up to first 5 rows.
-		//    - For arrays longer than 5, show first 3 and then a string "... N elements total".
+		//    - For arrays longer than 5, show only first 3 entries and then a string "... N elements total".
 		let previewArray: unknown[];
 
 		if (!Array.isArray(rows)) {
@@ -485,6 +485,7 @@ const dashboardOrchestrator = create.Script({
 		writeDashboard: (html: string) => {
 			writeFileSync(OUTPUT_HTML, html, 'utf-8');
 		},
+		OUTPUT_HTML,
 	},
 	script: `:data
     console.log("Casai Planning Pattern Example: Dashboard Generator")
@@ -532,7 +533,7 @@ const dashboardOrchestrator = create.Script({
     var finalHtml = wrapHtml(bodyHtml)
     writeDashboard(finalHtml)
 
-    console.log("\\nDashboard written to: ${OUTPUT_HTML}\\n")
+    console.log("\\nDashboard written to:", OUTPUT_HTML)
     console.log("Open this file in your browser to view the generated dashboard.")
 
     @data.plan = planText
@@ -546,9 +547,9 @@ const dashboardOrchestrator = create.Script({
 
 console.log('--- Dashboard Planning Example ---');
 try {
-	const result = await dashboardOrchestrator();
+	const result = await dashboardOrchestrator() as { outputFile?: string; plan?: string };
 	console.log('\n--- Execution Complete ---');
-	if (result?.data?.outputFile) {
+	if (result?.outputFile) {
 		console.log(`Generated dashboard: ${OUTPUT_HTML}`);
 	}
 } catch (error) {
