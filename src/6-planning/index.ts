@@ -59,6 +59,7 @@ function getDbPath(datasetName: string): string {
 async function loadInput(): Promise<DashboardInput> {
 	const raw = await fs.readFile(INPUT_PATH, 'utf-8');
 	const parsed = JSON.parse(raw);
+
 	if (
 		!parsed.datasetName ||
 		!parsed.datasetDescription ||
@@ -66,9 +67,10 @@ async function loadInput(): Promise<DashboardInput> {
 		!parsed.userRequest
 	) {
 		throw new Error(
-			'input.json must contain datasetName, datasetDescription, databaseUrl, userRequest.'
+			'input.json must contain datasetName, datasetDescription, databaseUrl, and userRequest.'
 		);
 	}
+
 	return parsed as DashboardInput;
 }
 
@@ -92,13 +94,13 @@ async function downloadDatabaseIfMissing(
 	const response = await fetch(databaseUrl);
 	if (!response.ok) {
 		throw new Error(
-			`Failed to download DB.HTTP ${response.status} ${response.statusText} `
+			`Failed to download DB from ${databaseUrl}. HTTP ${response.status} ${response.statusText}`
 		);
 	}
 	const arrayBuffer = await response.arrayBuffer();
 	const buffer = Buffer.from(arrayBuffer);
 	await fs.writeFile(dbPath, buffer);
-	console.log(`Saved DB to ${dbPath} `);
+	console.log(`Saved DB to ${dbPath}`);
 	return dbPath;
 }
 
@@ -116,7 +118,7 @@ function extractSchemaSummary(dbPath: string, datasetName: string): string {
 			.all() as { name: string }[];
 
 		const lines: string[] = [];
-		lines.push(`Dataset: ${datasetName} `);
+		lines.push(`Dataset: ${datasetName}`);
 		lines.push('');
 		lines.push('Tables:');
 		lines.push('');
@@ -134,7 +136,7 @@ function extractSchemaSummary(dbPath: string, datasetName: string): string {
 					pk: 0 | 1;
 				}[];
 
-			lines.push(`${idx + 1}. ${tableName} `);
+			lines.push(`${idx + 1}. ${tableName}`);
 			pragmaRows.forEach((col) => {
 				const type = col.type || 'UNKNOWN';
 				const pkSuffix = col.pk ? ', primary key' : '';
@@ -212,7 +214,9 @@ const dataTool = create.Function.asTool({
 			.describe('Human-readable description of the dataset.'),
 		schemaSummary: z
 			.string()
-			.describe('Concise text summary of tables/columns that the planner already sees.'),
+			.describe(
+				'Concise text summary of tables/columns that the planner already sees.'
+			),
 		dataRequest: z
 			.string()
 			.describe(
@@ -238,7 +242,7 @@ const dataTool = create.Function.asTool({
 
 		if (datasetName && datasetName !== authoritativeDatasetName) {
 			console.warn(
-				`[dataTool] datasetName mismatch.Using "${authoritativeDatasetName}" from input.json instead of "${datasetName}".`
+				`[dataTool] datasetName mismatch. Using "${authoritativeDatasetName}" from input.json instead of "${datasetName}".`
 			);
 		}
 
@@ -250,7 +254,7 @@ const dataTool = create.Function.asTool({
 
 		// 3. Build and execute SQL.
 		const sql = buildSqlFromRequest(dataRequest, schemaSummary);
-		console.log(`[dataTool] Executing SQL: \n${sql} \n`);
+		console.log(`[dataTool] Executing SQL:\n${sql}\n`);
 
 		const db = new Database(dbPath, { readonly: true });
 		let rows: unknown[];
@@ -262,9 +266,9 @@ const dataTool = create.Function.asTool({
 
 		// 4. Persist full data to JSON file on disk.
 		const pointId = dataPointCounter++;
-		const jsonFilename = `${authoritativeDatasetName} -point - ${pointId}.json`;
+		const jsonFilename = `${authoritativeDatasetName}-point-${pointId}.json`;
 		const diskPath = path.join(DATA_DIR, jsonFilename);
-		const browserPath = `./ data / ${jsonFilename} `;
+		const browserPath = `./data/${jsonFilename}`;
 
 		await fs.writeFile(diskPath, JSON.stringify(rows, null, 2), 'utf-8');
 
@@ -301,33 +305,34 @@ const plannerAgent = create.TextGenerator.withTemplate({
 	model: advancedModel,
 	temperature: 0.2,
 	tools: { dataTool },
+	maxSteps: 8,
 	stopWhen: stepCountIs(16),
 	prompt: `
 You are a planning agent that designs interactive data dashboards.
 
 You receive:
-- datasetName: { { datasetName } }
-- datasetDescription: { { datasetDescription } }
-- userRequest: { { userRequest } }
+- datasetName: {{ datasetName }}
+- datasetDescription: {{ datasetDescription }}
+- userRequest: {{ userRequest }}
 - schemaSummary:
-{ { schemaSummary } }
+{{ schemaSummary }}
 
 Your job:
 - Understand the user's dashboard request in the context of a specific SQLite dataset.
-	- Break the request into 3–6 dashboard elements(charts, tables, KPI cards, text, etc.).
+- Break the request into 3–6 dashboard elements (charts, tables, KPI cards, text, etc.).
 - Decide which elements need data previews.
 - For each element that needs data, call the "dataTool" exactly once with:
-- datasetName
-	- datasetDescription
-	- schemaSummary
-	- dataRequest: a clear natural - language description OR a concrete SQL query you want executed.
+  - datasetName
+  - datasetDescription
+  - schemaSummary
+  - dataRequest: a clear natural-language description OR a concrete SQL query you want executed.
 - Use only the fields in the previewJson when later referring to data fields in descriptions.
 
-	Output:
+Output:
 - A single text block that follows the dashboard plan format EXACTLY as described below.
 - Do NOT generate HTML, JavaScript, or SQL in the plan, except if you choose to put SQL into dataRequest.
 
-Required dashboard plan format(you MUST follow this structure):
+Required dashboard plan format (you MUST follow this structure):
 
 DASHBOARD PLAN
 ==============
@@ -485,6 +490,8 @@ const dashboardOrchestrator = create.Script({
 
     // 1. Load input.json
     var input = loadInput()
+    console.log("Loaded input.json for dataset:", input.datasetName)
+    console.log("User request:", input.userRequest)
 
     // 2. Ensure DB exists
     var dbPath = downloadDatabaseIfMissing(input.datasetName, input.databaseUrl)
@@ -496,32 +503,36 @@ const dashboardOrchestrator = create.Script({
 
     // 4. Run planner
     console.log("\\nRunning planner LLM...\\n")
-    var planResult = plannerAgent({
+    var planText = plannerAgent({
         datasetName: input.datasetName,
         datasetDescription: input.datasetDescription,
         userRequest: input.userRequest,
         schemaSummary: schemaSummary
-    })
-    var planText = planResult.text
+    }).text
 
     if !planText or planText.indexOf("DASHBOARD PLAN") != 0
         console.log("[WARN] Planner output does not start with 'DASHBOARD PLAN'. The generator will still attempt to use it.")
     endif
 
+    console.log("\\n=== DASHBOARD PLAN ===\\n")
+    console.log(planText)
+
     // 5. Run generator
     console.log("\\nRunning generator LLM...\\n")
-    var bodyResult = dashboardBodyGenerator({
+    var bodyHtml = dashboardBodyGenerator({
         datasetName: input.datasetName,
         datasetDescription: input.datasetDescription,
         userRequest: input.userRequest,
         schemaSummary: schemaSummary,
         plan: planText
-    })
-    var bodyHtml = bodyResult.text
+    }).text
 
     // 6. Wrap and save final HTML
     var finalHtml = wrapHtml(bodyHtml)
     writeDashboard(finalHtml)
+
+    console.log("\\nDashboard written to: ${OUTPUT_HTML}\\n")
+    console.log("Open this file in your browser to view the generated dashboard.")
 
     @data.plan = planText
     @data.outputFile = "dashboard.html"
@@ -536,9 +547,9 @@ console.log('--- Dashboard Planning Example ---');
 try {
 	const result = await dashboardOrchestrator();
 	console.log('\n--- Execution Complete ---');
-	console.log(`Generated dashboard: ${OUTPUT_HTML}`);
-	console.log('Open this file in your browser to view the results.');
-	// Optionally log result?.data if you want to inspect plan/outputFile.
+	if (result?.data?.outputFile) {
+		console.log(`Generated dashboard: ${OUTPUT_HTML}`);
+	}
 } catch (error) {
 	console.error('Orchestration failed:', error);
 }
