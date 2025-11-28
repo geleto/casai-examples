@@ -18,7 +18,7 @@
 import { create } from 'casai';
 import { basicModel, advancedModel } from '../setup';
 import { z } from 'zod';
-import Database from 'better-sqlite3';
+import BetterSqlite3 from 'better-sqlite3';
 import fs from 'fs/promises';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
@@ -36,11 +36,27 @@ interface DashboardInput {
 	userRequest: string;
 }
 
+interface SqliteStatement<T = unknown> {
+	all(): T[];
+}
+
+interface SqliteDatabase {
+	prepare<T = unknown>(sql: string): SqliteStatement<T>;
+	close(): void;
+}
+
+type SqliteDatabaseConstructor = new (
+	filename: string,
+	options?: { readonly?: boolean }
+) => SqliteDatabase;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const INPUT_PATH = path.join(__dirname, 'input.json');
 const DATA_DIR = path.join(__dirname, 'data');
 const OUTPUT_HTML = path.join(__dirname, 'dashboard.html');
+const FIRST_TABLE_REGEX = /\n\s*\d+\.\s+([A-Za-z0-9_]+)/;
+const rawBetterSqlite3: unknown = BetterSqlite3;
 
 // ---------------------------------------------------------------------------
 // Filesystem & DB helpers
@@ -50,6 +66,11 @@ function ensureDataDir() {
 	if (!existsSync(DATA_DIR)) {
 		mkdirSync(DATA_DIR, { recursive: true });
 	}
+}
+
+function openReadonlyDatabase(dbPath: string): SqliteDatabase {
+	const DatabaseConstructor = rawBetterSqlite3 as SqliteDatabaseConstructor;
+	return new DatabaseConstructor(dbPath, { readonly: true });
 }
 
 function getDbPath(datasetName: string): string {
@@ -109,13 +130,13 @@ async function downloadDatabaseIfMissing(
 // ---------------------------------------------------------------------------
 
 function extractSchemaSummary(dbPath: string, datasetName: string): string {
-	const db = new Database(dbPath, { readonly: true });
+	const db = openReadonlyDatabase(dbPath);
 	try {
 		const tables = db
-			.prepare(
+			.prepare<{ name: string }>(
 				"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
 			)
-			.all() as { name: string }[];
+			.all();
 
 		const lines: string[] = [];
 		lines.push(`Dataset: ${datasetName}`);
@@ -127,19 +148,19 @@ function extractSchemaSummary(dbPath: string, datasetName: string): string {
 			const tableName = table.name;
 			const escaped = tableName.replace(/"/g, '""');
 			const pragmaRows = db
-				.prepare(`PRAGMA table_info("${escaped}")`)
-				.all() as {
+				.prepare<{
 					cid: number;
 					name: string;
-					type: string;
+					type: string | null;
 					notnull: 0 | 1;
 					dflt_value: unknown;
 					pk: 0 | 1;
-				}[];
+				}>(`PRAGMA table_info("${escaped}")`)
+				.all();
 
 			lines.push(`${idx + 1}. ${tableName}`);
 			pragmaRows.forEach((col) => {
-				const type = col.type || 'UNKNOWN';
+				const type = col.type ?? 'UNKNOWN';
 				const pkSuffix = col.pk ? ', primary key' : '';
 				lines.push(`   - ${col.name} (${type}${pkSuffix})`);
 			});
@@ -179,8 +200,8 @@ function buildSqlFromRequest(
 	}
 
 	// Very simple heuristic: fall back to the first table in the schema.
-	const match = schemaSummary.match(/\n\s*\d+\.\s+([A-Za-z0-9_]+)/);
-	const firstTable = match ? match[1] : null;
+	const firstTableMatch = FIRST_TABLE_REGEX.exec(schemaSummary);
+	const firstTable = firstTableMatch ? firstTableMatch[1] : null;
 
 	if (firstTable) {
 		return `SELECT * FROM ${firstTable} LIMIT 500`;
@@ -257,10 +278,10 @@ const dataTool = create.Function.asTool({
 		const sql = buildSqlFromRequest(dataRequest, schemaSummary);
 		console.log(`[dataTool] Executing SQL:\n${sql}\n`);
 
-		const db = new Database(dbPath, { readonly: true });
+		const db = openReadonlyDatabase(dbPath);
 		let rows: unknown[];
 		try {
-			rows = db.prepare(sql).all() as unknown[];
+			rows = db.prepare(sql).all();
 		} finally {
 			db.close();
 		}
@@ -549,7 +570,7 @@ console.log('--- Dashboard Planning Example ---');
 try {
 	const result = await dashboardOrchestrator() as { outputFile?: string; plan?: string };
 	console.log('\n--- Execution Complete ---');
-	if (result?.outputFile) {
+	if (result.outputFile) {
 		console.log(`Generated dashboard: ${OUTPUT_HTML}`);
 	}
 } catch (error) {
