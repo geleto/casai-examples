@@ -16,6 +16,7 @@
     "@ai-sdk/anthropic": "^2.0.16",
     "@ai-sdk/openai": "^2.0.30",
     "ai": "^5.0.44",
+    "better-sqlite3": "^12.4.6",
     "casai": "^0.3.2",
     "semachunk": "^0.3.2",
     "tsx": "^4.20.3",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.31.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.0.13",
     "@typescript-eslint/eslint-plugin": "^8.36.0",
     "@typescript-eslint/parser": "^8.36.0",
