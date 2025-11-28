@@ -303,21 +303,21 @@ const dataTool = create.Function.asTool({
 
 		// 5. Build preview JSON according to truncation rules:
 		//    - Show up to first 5 rows.
-		//    - For arrays longer than 5, show only first 3 entries and then a string "... N elements total".
-		let previewArray: unknown[];
+		//    - For arrays longer than 5, show only first 3 entries and then append "... N more items" text.
+		let previewJson: string;
 
 		if (!Array.isArray(rows)) {
-			previewArray = [rows];
+			previewJson = JSON.stringify([rows], previewReplacer, 2);
 		} else if (rows.length <= 5) {
-			previewArray = rows;
+			previewJson = JSON.stringify(rows, previewReplacer, 2);
 		} else {
-			previewArray = [
-				...rows.slice(0, 3),
-				`"... ${rows.length} elements total"`,
-			];
+			const truncated = rows.slice(0, 3);
+			const json = JSON.stringify(truncated, previewReplacer, 2);
+			previewJson = json.replace(
+				/\n\]$/,
+				`,\n   ... ${rows.length - 3} more items\n]`
+			);
 		}
-
-		const previewJson = JSON.stringify(previewArray, previewReplacer, 2);
 
 		return {
 			dataFile: browserPath,
@@ -404,6 +404,7 @@ Rules:
 - At least one element MUST have usesData: yes and must actually call dataTool.
 - All dataTool calls MUST pass a purely natural-language dataRequest. Do NOT include SQL keywords like SELECT, FROM, WHERE, GROUP BY, etc.
 - Insert the exact dataFile and previewJson from the tool result into the corresponding element.
+- IMPORTANT: The previewJson returned by the tool might contain truncation text (e.g. "... N more items") which makes it invalid JSON. You MUST copy this text EXACTLY as is, do not try to "fix" it or make it valid JSON.
 - Do not output anything before "DASHBOARD PLAN" or after the last element.
 `.trim(),
 });
