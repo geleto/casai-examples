@@ -457,7 +457,9 @@ Requirements for the generated HTML:
 
 2) Elements
 - For each element in the plan:
+- For each element in the plan:
   - If type=chart, create a <div style="position: relative; height: 300px; width: 100%;"><canvas></canvas></div> inside a Bootstrap card.
+    - CRITICAL: The wrapper div with fixed height is REQUIRED to prevent Chart.js from entering an infinite resizing loop.
   - If type=table, create a <table class="table table-striped table-sm"> inside a card.
   - If type=text or kpi, create a card with appropriate headings and text.
 - Use the title and description from the plan for each card.
