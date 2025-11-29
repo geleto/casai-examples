@@ -21,7 +21,6 @@ import { z } from 'zod';
 import BetterSqlite3 from 'better-sqlite3';
 import fs from 'fs/promises';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { stepCountIs } from 'ai';
@@ -35,7 +34,6 @@ interface DashboardInput {
 	datasetDescription: string;
 	databaseUrl: string;
 	userRequest: string;
-	port?: number;
 }
 
 interface SqliteStatement<T = unknown> {
@@ -93,7 +91,7 @@ async function loadInput(): Promise<DashboardInput> {
 		);
 	}
 
-	parsed.port ??= 3000; // Default port
+
 
 	return parsed;
 }
@@ -457,7 +455,6 @@ Requirements for the generated HTML:
 
 2) Elements
 - For each element in the plan:
-- For each element in the plan:
   - If type=chart, create a <div style="position: relative; height: 300px; width: 100%;"><canvas></canvas></div> inside a Bootstrap card.
     - CRITICAL: The wrapper div with fixed height is REQUIRED to prevent Chart.js from entering an infinite resizing loop.
   - If type=table, create a <table class="table table-striped table-sm"> inside a card.
@@ -467,6 +464,7 @@ Requirements for the generated HTML:
 3) Data fetching & Chart.js
 - For each element with usesData: yes:
   - Use a <script> at the end of the body to:
+    - Wrap ALL code in "document.addEventListener('DOMContentLoaded', () => { ... });" to ensure the data at the bottom of the file is loaded before execution.
     - Access the data via window.dashboardData[dataFile] (where dataFile is the path from the plan).
     - Process the resulting array of objects to build labels and datasets.
     - Use only field names that actually appear in the previewJson for that element.
@@ -522,30 +520,6 @@ function wrapHtml(body: string): string {
 
 function writeDashboard(html: string): void {
 	writeFileSync(OUTPUT_HTML, html, 'utf-8');
-}
-
-/**
- * Minimal server for dashboard.html.
- */
-function serveDashboard(port: number): void {
-	http.createServer((req, res) => {
-		fs.readFile('dashboard.html').then((data) => {
-			res.writeHead(200, { 'Content-Type': 'text/html' });
-			res.end(data);
-		}).catch((err: unknown) => {
-			console.error('Error serving dashboard:', err);
-			res.writeHead(500);
-			res.end('Error loading dashboard.html');
-		});
-	}).listen(port, () => {
-		console.log(`Serving at http://localhost:${port}/dashboard.html`);
-	});
-	// exit on key press
-	if (process.stdin.isTTY) {
-		process.stdin.setRawMode(true);
-		// process.stdin.resume();
-		process.stdin.on('data', () => process.exit(0));
-	}
 }
 
 async function dashboardOrchestrator(): Promise<{
@@ -607,11 +581,7 @@ async function dashboardOrchestrator(): Promise<{
 	console.log('\nDashboard written to:', OUTPUT_HTML);
 
 	// 7. Serve the dashboard
-	if (input.port) {
-		serveDashboard(input.port);
-	} else {
-		console.log('Open this file in your browser to view the generated dashboard.');
-	}
+	console.log('Open this file in your browser to view the generated dashboard.');
 
 	return {
 		plan: planText,
