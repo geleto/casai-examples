@@ -38,12 +38,12 @@
       }
     },
     {
-      "name": "Run Example 14",
+      "name": "Run Example 6",
       "type": "node",
       "request": "launch",
       "program": "${workspaceFolder}/scripts/run-example.mjs",
       "args": [
-        "14"
+        "6"
       ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",

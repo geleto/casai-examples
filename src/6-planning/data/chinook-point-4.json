@@ -1,0 +1,302 @@
+[
+  {
+    "Year": "2021",
+    "Month": "01",
+    "Revenue": 35.64
+  },
+  {
+    "Year": "2021",
+    "Month": "02",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2021",
+    "Month": "03",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2021",
+    "Month": "04",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2021",
+    "Month": "05",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2021",
+    "Month": "06",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2021",
+    "Month": "07",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2021",
+    "Month": "08",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2021",
+    "Month": "09",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2021",
+    "Month": "10",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2021",
+    "Month": "11",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2021",
+    "Month": "12",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2022",
+    "Month": "01",
+    "Revenue": 52.62
+  },
+  {
+    "Year": "2022",
+    "Month": "02",
+    "Revenue": 46.62
+  },
+  {
+    "Year": "2022",
+    "Month": "03",
+    "Revenue": 44.62
+  },
+  {
+    "Year": "2022",
+    "Month": "04",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2022",
+    "Month": "05",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2022",
+    "Month": "06",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2022",
+    "Month": "07",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2022",
+    "Month": "08",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2022",
+    "Month": "09",
+    "Revenue": 36.63
+  },
+  {
+    "Year": "2022",
+    "Month": "10",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2022",
+    "Month": "11",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2022",
+    "Month": "12",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2023",
+    "Month": "01",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2023",
+    "Month": "02",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2023",
+    "Month": "03",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2023",
+    "Month": "04",
+    "Revenue": 51.62
+  },
+  {
+    "Year": "2023",
+    "Month": "05",
+    "Revenue": 42.62
+  },
+  {
+    "Year": "2023",
+    "Month": "06",
+    "Revenue": 50.62
+  },
+  {
+    "Year": "2023",
+    "Month": "07",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2023",
+    "Month": "08",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2023",
+    "Month": "09",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2023",
+    "Month": "10",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2023",
+    "Month": "11",
+    "Revenue": 23.76
+  },
+  {
+    "Year": "2023",
+    "Month": "12",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2024",
+    "Month": "01",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2024",
+    "Month": "02",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2024",
+    "Month": "03",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2024",
+    "Month": "04",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2024",
+    "Month": "05",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2024",
+    "Month": "06",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2024",
+    "Month": "07",
+    "Revenue": 39.62
+  },
+  {
+    "Year": "2024",
+    "Month": "08",
+    "Revenue": 47.62
+  },
+  {
+    "Year": "2024",
+    "Month": "09",
+    "Revenue": 46.71
+  },
+  {
+    "Year": "2024",
+    "Month": "10",
+    "Revenue": 42.62
+  },
+  {
+    "Year": "2024",
+    "Month": "11",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2024",
+    "Month": "12",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2025",
+    "Month": "01",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2025",
+    "Month": "02",
+    "Revenue": 27.72
+  },
+  {
+    "Year": "2025",
+    "Month": "03",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2025",
+    "Month": "04",
+    "Revenue": 33.66
+  },
+  {
+    "Year": "2025",
+    "Month": "05",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2025",
+    "Month": "06",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2025",
+    "Month": "07",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2025",
+    "Month": "08",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2025",
+    "Month": "09",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2025",
+    "Month": "10",
+    "Revenue": 37.62
+  },
+  {
+    "Year": "2025",
+    "Month": "11",
+    "Revenue": 49.62
+  },
+  {
+    "Year": "2025",
+    "Month": "12",
+    "Revenue": 38.62
+  }
+]

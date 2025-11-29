@@ -500,7 +500,6 @@ const HTML_WRAPPER_TEMPLATE = `<!DOCTYPE html>
       rel="stylesheet"
     />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-    <script src="./dashboard-helpers.js"></script>
   </head>
   {{BODY_PLACEHOLDER}}
   {{DATA_SCRIPT}}

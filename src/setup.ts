@@ -8,8 +8,8 @@ const showProgressIndicators = true;
 
 // Export wrapped models with progress indicators
 export const basicModel = withProgressIndicator(
-	openai('gpt-4.1-nano'),
-	'GPT-4o-nano',
+	openai('gpt-5-nano'),
+	'GPT-5-nano',
 	showProgressIndicators
 );
 
