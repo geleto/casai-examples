@@ -180,6 +180,11 @@ function extractSchemaSummary(dbPath: string, datasetName: string): string {
 // dataTool implementation
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// dataTool implementation
+// ---------------------------------------------------------------------------
+
+const collectedData: Record<string, unknown> = {};
 let dataPointCounter = 1;
 
 /**
@@ -300,10 +305,10 @@ const dataTool = create.Function.asTool({
 		// 4. Persist full data to JSON file on disk.
 		const pointId = dataPointCounter++;
 		const jsonFilename = `${authoritativeDatasetName}-point-${pointId}.json`;
-		const diskPath = path.join(DATA_DIR, jsonFilename);
 		const browserPath = `./data/${jsonFilename}`;
 
-		await fs.writeFile(diskPath, JSON.stringify(rows, null, 2), 'utf-8');
+		// Store in memory instead of writing to file
+		collectedData[browserPath] = rows;
 
 		// 5. Build preview JSON according to truncation rules:
 		//    - Show up to first 5 rows.
@@ -452,7 +457,7 @@ Requirements for the generated HTML:
 
 2) Elements
 - For each element in the plan:
-  - If type=chart, create a <canvas> inside a Bootstrap card.
+  - If type=chart, create a <div style="position: relative; height: 300px; width: 100%;"><canvas></canvas></div> inside a Bootstrap card.
   - If type=table, create a <table class="table table-striped table-sm"> inside a card.
   - If type=text or kpi, create a card with appropriate headings and text.
 - Use the title and description from the plan for each card.
@@ -460,8 +465,7 @@ Requirements for the generated HTML:
 3) Data fetching & Chart.js
 - For each element with usesData: yes:
   - Use a <script> at the end of the body to:
-    - Call fetch(dataFile) where dataFile is exactly the path from the plan.
-    - Wait for response.json().
+    - Access the data via window.dashboardData[dataFile] (where dataFile is the path from the plan).
     - Process the resulting array of objects to build labels and datasets.
     - Use only field names that actually appear in the previewJson for that element.
     - Create a new Chart: new Chart(ctx, { type, data, options }).
@@ -499,6 +503,7 @@ const HTML_WRAPPER_TEMPLATE = `<!DOCTYPE html>
     <script src="./dashboard-helpers.js"></script>
   </head>
   {{BODY_PLACEHOLDER}}
+  {{DATA_SCRIPT}}
 </html>
 `;
 
@@ -507,7 +512,10 @@ const HTML_WRAPPER_TEMPLATE = `<!DOCTYPE html>
 // ---------------------------------------------------------------------------
 
 function wrapHtml(body: string): string {
-	return HTML_WRAPPER_TEMPLATE.replace('{{BODY_PLACEHOLDER}}', body);
+	const dataScript = `<script>window.dashboardData = ${JSON.stringify(collectedData)};</script>`;
+	return HTML_WRAPPER_TEMPLATE
+		.replace('{{BODY_PLACEHOLDER}}', body)
+		.replace('{{DATA_SCRIPT}}', dataScript);
 }
 
 function writeDashboard(html: string): void {
