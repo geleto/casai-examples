@@ -302,11 +302,11 @@ const dataTool = create.Function.asTool({
 
 		// 4. Persist full data to JSON file on disk.
 		const pointId = dataPointCounter++;
-		const jsonFilename = `${authoritativeDatasetName}-point-${pointId}.json`;
-		const browserPath = `./data/${jsonFilename}`;
+		// const jsonFilename = `${authoritativeDatasetName}-point-${pointId}.json`;
+		const dataKey = `${authoritativeDatasetName}_${pointId}`;
 
 		// Store in memory instead of writing to file
-		collectedData[browserPath] = rows;
+		collectedData[dataKey] = rows;
 
 		// 5. Build preview JSON according to truncation rules:
 		//    - Show up to first 5 rows.
@@ -327,7 +327,7 @@ const dataTool = create.Function.asTool({
 		}
 
 		return {
-			dataFile: browserPath,
+			dataFile: dataKey,
 			previewJson,
 		};
 	},
@@ -389,7 +389,7 @@ usesData: <yes|no>
 dataRequest: |
   <natural language description of the needed data>
 
-dataFile: <filename returned by dataTool>
+dataFile: <data key returned by dataTool>
 
 previewJson:
 \`\`\`json
@@ -465,7 +465,8 @@ Requirements for the generated HTML:
 - For each element with usesData: yes:
   - Use a <script> at the end of the body to:
     - Wrap ALL code in "document.addEventListener('DOMContentLoaded', () => { ... });" to ensure the data at the bottom of the file is loaded before execution.
-    - Access the data via window.dashboardData[dataFile] (where dataFile is the path from the plan).
+    - Access the data via window.dashboardData[dataKey] (where dataKey is the 'dataFile' value from the plan).
+    - Do NOT define window.dashboardData or include mock data. It is injected automatically by the system wrapper.
     - Process the resulting array of objects to build labels and datasets.
     - Use only field names that actually appear in the previewJson for that element.
     - Create a new Chart: new Chart(ctx, { type, data, options }).
@@ -478,6 +479,7 @@ Requirements for the generated HTML:
 
 Important:
 - Do NOT include <html>, <head>, <link>, or <script src="..."> tags for libraries.
+- Do NOT include any mock data.
 - Assume Bootstrap 5 CSS, Chart.js, and any helper scripts are already included by the outer wrapper.
 
 Return only the <body>...</body> element.
