@@ -21,6 +21,7 @@ import { z } from 'zod';
 import BetterSqlite3 from 'better-sqlite3';
 import fs from 'fs/promises';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { stepCountIs } from 'ai';
@@ -34,6 +35,7 @@ interface DashboardInput {
 	datasetDescription: string;
 	databaseUrl: string;
 	userRequest: string;
+	port?: number;
 }
 
 interface SqliteStatement<T = unknown> {
@@ -90,6 +92,8 @@ async function loadInput(): Promise<DashboardInput> {
 			'input.json must contain datasetName, datasetDescription, databaseUrl, and userRequest.'
 		);
 	}
+
+	parsed.port ??= 3000; // Default port
 
 	return parsed;
 }
@@ -510,6 +514,30 @@ function writeDashboard(html: string): void {
 	writeFileSync(OUTPUT_HTML, html, 'utf-8');
 }
 
+/**
+ * Minimal server for dashboard.html.
+ */
+function serveDashboard(port: number): void {
+	http.createServer((req, res) => {
+		fs.readFile('dashboard.html').then((data) => {
+			res.writeHead(200, { 'Content-Type': 'text/html' });
+			res.end(data);
+		}).catch((err: unknown) => {
+			console.error('Error serving dashboard:', err);
+			res.writeHead(500);
+			res.end('Error loading dashboard.html');
+		});
+	}).listen(port, () => {
+		console.log(`Serving at http://localhost:${port}/dashboard.html`);
+	});
+	// exit on key press
+	if (process.stdin.isTTY) {
+		process.stdin.setRawMode(true);
+		// process.stdin.resume();
+		process.stdin.on('data', () => process.exit(0));
+	}
+}
+
 async function dashboardOrchestrator(): Promise<{
 	outputFile?: string;
 	plan?: string;
@@ -567,7 +595,13 @@ async function dashboardOrchestrator(): Promise<{
 	writeDashboard(finalHtml);
 
 	console.log('\nDashboard written to:', OUTPUT_HTML);
-	console.log('Open this file in your browser to view the generated dashboard.');
+
+	// 7. Serve the dashboard
+	if (input.port) {
+		serveDashboard(input.port);
+	} else {
+		console.log('Open this file in your browser to view the generated dashboard.');
+	}
 
 	return {
 		plan: planText,
