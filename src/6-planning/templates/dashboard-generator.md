@@ -40,6 +40,10 @@ Requirements for the generated HTML:
     - Process the resulting array of objects to build labels and datasets.
     - Use only field names that actually appear in the previewJson for that element.
     - Create a new Chart: new Chart(ctx, { type, data, options }).
+  - If the element is a KPI (type=kpi):
+    - Extract the single value from the first row of the data array (e.g. `const value = data[0].TotalRevenue`).
+    - Find the element by ID or class and update its text content with the value.
+    - Format the number appropriately (currency, large numbers, etc.).
 - You may define small helper functions in JavaScript inside the <script> block to group/summarize data.
 
 4) Styling & UX

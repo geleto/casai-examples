@@ -63,6 +63,7 @@ previewJson:
 Rules:
 - Number elements sequentially (Element 1, Element 2, Element 3, ...).
 - At least one element MUST have usesData: yes and must actually call dataTool.
+- KPI cards (Total Revenue, etc.) almost ALWAYS need data. Do not set usesData: no for them unless they are purely static text.
 - All dataTool calls MUST pass a purely natural-language dataRequest. Do NOT include SQL keywords like SELECT, FROM, WHERE, GROUP BY, etc.
 - Insert the exact dataFile and previewJson from the tool result into the corresponding element.
 - IMPORTANT: The previewJson returned by the tool might contain truncation text (e.g. "... N more items") which makes it invalid JSON. You MUST copy this text EXACTLY as is, do not try to "fix" it or make it valid JSON.
