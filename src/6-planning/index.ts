@@ -74,8 +74,14 @@ async function downloadDatabaseIfMissing(
 }
 
 // ---------------------------------------------------------------------------
-// Schema extraction (LLM-friendly summary)
+// Schema extraction (LLM-friendly summary from SQLite metadata)
 // ---------------------------------------------------------------------------
+
+interface TableInfo {
+	name: string;
+	type: string | null;
+	pk: 0 | 1;
+}
 
 function extractSchemaSummary(datasetName: string): string {
 	// db is global now
@@ -95,17 +101,7 @@ function extractSchemaSummary(datasetName: string): string {
 		const tableName = table.name;
 		const escaped = tableName.replace(/"/g, '""');
 		const pragmaRows = db
-			.prepare<
-				[],
-				{
-					cid: number;
-					name: string;
-					type: string | null;
-					notnull: 0 | 1;
-					dflt_value: unknown;
-					pk: 0 | 1;
-				}
-			>(`PRAGMA table_info("${escaped}")`)
+			.prepare<[], TableInfo>(`PRAGMA table_info("${escaped}")`)
 			.all();
 
 		lines.push(`${idx + 1}. ${tableName}`);
