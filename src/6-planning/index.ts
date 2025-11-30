@@ -3,7 +3,7 @@
  *
  * High-level flow:
  * 1. Read input.json (dataset + user request).
- * 2. Ensure SQLite DB is downloaded to ./data/<datasetName>.db.
+ * 2. Ensure SQLite DB is downloaded to ./database/<datasetName>.db.
  * 3. Extract a concise schema summary.
  * 4. Run Planner LLM:
  *    - Sees dataset + schema + userRequest.
@@ -53,7 +53,7 @@ type SqliteDatabaseConstructor = new (
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const INPUT_PATH = path.join(__dirname, 'input.json');
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = path.join(__dirname, 'database');
 const OUTPUT_HTML = path.join(__dirname, 'dashboard.html');
 const rawBetterSqlite3: unknown = BetterSqlite3;
 
@@ -97,7 +97,7 @@ async function loadInput(): Promise<DashboardInput> {
 }
 
 /**
- * Download the SQLite DB to ./data/<datasetName>.db if it does not exist yet.
+ * Download the SQLite DB to ./database/<datasetName>.db if it does not exist yet.
  */
 async function downloadDatabaseIfMissing(
 	datasetName: string,

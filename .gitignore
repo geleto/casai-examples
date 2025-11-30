@@ -131,3 +131,7 @@ dist
 
 # Vectra Index
 vectra_index/
+
+# 6-planning
+src/6-planning/database/
+src/6-planning/dashboard.html
