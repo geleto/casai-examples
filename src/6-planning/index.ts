@@ -50,15 +50,17 @@ type SqliteDatabaseConstructor = new (
 	options?: { readonly?: boolean }
 ) => SqliteDatabase;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const INPUT_PATH = path.join(__dirname, 'input.json');
 const DATA_DIR = path.join(__dirname, 'database');
 const OUTPUT_HTML = path.join(__dirname, 'dashboard.html');
 const rawBetterSqlite3: unknown = BetterSqlite3;
-
 const templatesDir = fileURLToPath(new URL('./templates', import.meta.url));
+
 const templateLoader = new FileSystemLoader(templatesDir);
+
+// Global DB instance
+let db!: SqliteDatabase;
 
 // ---------------------------------------------------------------------------
 // Filesystem & DB helpers
@@ -133,48 +135,44 @@ async function downloadDatabaseIfMissing(
 // Schema extraction (LLM-friendly summary)
 // ---------------------------------------------------------------------------
 
-function extractSchemaSummary(dbPath: string, datasetName: string): string {
-	const db = openReadonlyDatabase(dbPath);
-	try {
-		const tables = db
-			.prepare<{ name: string }>(
-				"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-			)
+function extractSchemaSummary(datasetName: string): string {
+	// db is global now
+	const tables = db
+		.prepare<{ name: string }>(
+			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+		)
+		.all();
+
+	const lines: string[] = [];
+	lines.push(`Dataset: ${datasetName}`);
+	lines.push('');
+	lines.push('Tables:');
+	lines.push('');
+
+	tables.forEach((table, idx) => {
+		const tableName = table.name;
+		const escaped = tableName.replace(/"/g, '""');
+		const pragmaRows = db
+			.prepare<{
+				cid: number;
+				name: string;
+				type: string | null;
+				notnull: 0 | 1;
+				dflt_value: unknown;
+				pk: 0 | 1;
+			}>(`PRAGMA table_info("${escaped}")`)
 			.all();
 
-		const lines: string[] = [];
-		lines.push(`Dataset: ${datasetName}`);
-		lines.push('');
-		lines.push('Tables:');
-		lines.push('');
-
-		tables.forEach((table, idx) => {
-			const tableName = table.name;
-			const escaped = tableName.replace(/"/g, '""');
-			const pragmaRows = db
-				.prepare<{
-					cid: number;
-					name: string;
-					type: string | null;
-					notnull: 0 | 1;
-					dflt_value: unknown;
-					pk: 0 | 1;
-				}>(`PRAGMA table_info("${escaped}")`)
-				.all();
-
-			lines.push(`${idx + 1}. ${tableName}`);
-			pragmaRows.forEach((col) => {
-				const type = col.type ?? 'UNKNOWN';
-				const pkSuffix = col.pk ? ', primary key' : '';
-				lines.push(`   - ${col.name} (${type}${pkSuffix})`);
-			});
-			lines.push('');
+		lines.push(`${idx + 1}. ${tableName}`);
+		pragmaRows.forEach((col) => {
+			const type = col.type ?? 'UNKNOWN';
+			const pkSuffix = col.pk ? ', primary key' : '';
+			lines.push(`   - ${col.name} (${type}${pkSuffix})`);
 		});
+		lines.push('');
+	});
 
-		return lines.join('\n').trimEnd();
-	} finally {
-		db.close();
-	}
+	return lines.join('\n').trimEnd();
 }
 
 // ---------------------------------------------------------------------------
@@ -183,21 +181,6 @@ function extractSchemaSummary(dbPath: string, datasetName: string): string {
 
 const collectedData: Record<string, unknown> = {};
 let dataPointCounter = 1;
-
-/**
- * Replacer for JSON.stringify used in preview JSON.
- * Ensures bigint and Date values are serialized safely.
- */
-function previewReplacer(_key: string, value: unknown): unknown {
-	if (typeof value === 'bigint') {
-		const num = Number(value);
-		return Number.isSafeInteger(num) ? num : value.toString();
-	}
-	if (value instanceof Date) {
-		return value.toISOString();
-	}
-	return value;
-}
 
 /**
  * LLM-powered SQL generator.
@@ -211,119 +194,7 @@ const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 	prompt: 'sql-generator.md',
 });
 
-const dataTool = create.Function.asTool({
-	description:
-		'Queries the local SQLite dataset and returns a JSON data file plus a truncated preview JSON. Full data is stored on disk, not passed through the model.',
-	inputSchema: z.object({
-		datasetName: z.string().describe('Short identifier of the dataset.'),
-		datasetDescription: z
-			.string()
-			.describe('Human-readable description of the dataset.'),
-		schemaSummary: z
-			.string()
-			.describe(
-				'Concise text summary of tables/columns that the planner already sees.'
-			),
-		dataRequest: z
-			.string()
-			.describe(
-				'Natural-language description of the data needed. This tool will translate the request into a SQLite SELECT query internally.'
-			),
-	}),
-	execute: async ({
-		datasetName,
-		datasetDescription,
-		schemaSummary,
-		dataRequest,
-	}: {
-		datasetName: string;
-		datasetDescription: string;
-		schemaSummary: string;
-		dataRequest: string;
-	}) => {
-		ensureDataDir();
 
-		// 1. Resolve DB path and ensure it exists.
-		//    The database MUST have been downloaded during initialization
-		//    (before the planner runs).
-		const authoritativeDatasetName = datasetName;
-		const dbPath = getDbPath(authoritativeDatasetName);
-
-		if (!existsSync(dbPath)) {
-			throw new Error(
-				`[dataTool] Database file not found at ${dbPath}. It should be downloaded during initialization before invoking the planner.`
-			);
-		}
-
-		// 2. Use LLM to build the SQL query from the natural-language dataRequest.
-		const sqlResult = await sqlFromRequestGenerator({
-			datasetDescription,
-			schemaSummary,
-			dataRequest,
-		});
-		const sql = sqlResult.text.trim();
-
-		if (!sql) {
-			throw new Error('[dataTool] SQL generator returned an empty query.');
-		}
-
-		console.log(`[dataTool] Executing SQL generated from natural-language request:\n${sql}\n`);
-
-		// 3. Execute SQL against the local SQLite DB.
-		const db = openReadonlyDatabase(dbPath);
-		let rows: unknown[];
-		try {
-			rows = db.prepare(sql).all();
-		} finally {
-			db.close();
-		}
-
-		// 4. Persist full data to JSON file on disk.
-		const pointId = dataPointCounter++;
-		// const jsonFilename = `${authoritativeDatasetName}-point-${pointId}.json`;
-		const dataKey = `${authoritativeDatasetName}_${pointId}`;
-
-		// Store in memory instead of writing to file
-		collectedData[dataKey] = rows;
-
-		// 5. Build preview JSON according to truncation rules:
-		//    - Show up to first 5 rows.
-		//    - For arrays longer than 5, show only first 3 entries and then append "... N more items" text.
-		let previewJson: string;
-
-		if (!Array.isArray(rows)) {
-			previewJson = JSON.stringify([rows], previewReplacer, 2);
-		} else if (rows.length <= 5) {
-			previewJson = JSON.stringify(rows, previewReplacer, 2);
-		} else {
-			const truncated = rows.slice(0, 3);
-			const json = JSON.stringify(truncated, previewReplacer, 2);
-			previewJson = json.replace(
-				/\n\]$/,
-				`,\n   ... ${rows.length - 3} more items\n]`
-			);
-		}
-
-		return {
-			dataFile: dataKey,
-			previewJson,
-		};
-	},
-});
-
-// ---------------------------------------------------------------------------
-// Planner LLM (Planning Agent)
-// ---------------------------------------------------------------------------
-
-const plannerAgent = create.TextGenerator.loadsTemplate({
-	model: advancedModel,
-	temperature: 0.2,
-	tools: { dataTool },
-	//maxSteps: 8,
-	stopWhen: stepCountIs(32),
-	loader: templateLoader,
-	prompt: 'planner-agent.md',
-});
 
 // ---------------------------------------------------------------------------
 // Generator LLM (Dashboard HTML Body)
@@ -381,54 +252,141 @@ async function dashboardOrchestrator(): Promise<{
 		input.databaseUrl
 	);
 
-	// 3. Extract schema summary
-	const schemaSummary = extractSchemaSummary(dbPath, input.datasetName);
-	console.log('\n=== Schema Summary ===\n');
-	console.log(schemaSummary);
+	// Initialize global DB
+	db = openReadonlyDatabase(dbPath);
 
-	// 4. Run planner
-	console.log('\nRunning planner LLM...\n');
-	const planResult = await plannerAgent({
-		datasetName: input.datasetName,
-		datasetDescription: input.datasetDescription,
-		userRequest: input.userRequest,
-		schemaSummary,
-	});
-	const planText = planResult.text;
+	try {
+		// 3. Extract schema summary
+		const schemaSummary = extractSchemaSummary(input.datasetName);
+		console.log('\n=== Schema Summary ===\n');
+		console.log(schemaSummary);
 
-	if (!planText.trim().startsWith('DASHBOARD PLAN')) {
-		console.log(
-			"[WARN] Planner output does not start with 'DASHBOARD PLAN'. The generator will still attempt to use it."
-		);
+		// 4. Run planner
+		console.log('\nRunning planner LLM...\n');
+
+		const dataTool = create.Function.asTool({
+			description:
+				'Queries the local SQLite dataset and returns a JSON data file plus a truncated preview JSON. Full data is stored on disk, not passed through the model.',
+			inputSchema: z.object({
+				dataRequest: z
+					.string()
+					.describe(
+						'Natural-language description of the data needed. This tool will translate the request into a SQLite SELECT query internally.'
+					),
+			}),
+			execute: async ({ dataRequest }: { dataRequest: string }) => {
+				ensureDataDir();
+
+				// 1. Resolve DB path.
+				// We use the authoritative datasetName from the outer scope, so no hallucination possible.
+				// const dbPath = getDbPath(input.datasetName); // Unused
+
+				// 2. Use LLM to build the SQL query from the natural-language dataRequest.
+				const sqlResult = await sqlFromRequestGenerator({
+					datasetDescription: input.datasetDescription,
+					schemaSummary,
+					dataRequest,
+				});
+				const sql = sqlResult.text.trim();
+
+				if (!sql) {
+					throw new Error('[dataTool] SQL generator returned an empty query.');
+				}
+
+				console.log(
+					`[dataTool] Executing SQL generated from natural-language request:\n${sql}\n`
+				);
+
+				// 3. Execute SQL against the local SQLite DB.
+				// Used global db
+				const rows = db.prepare(sql).all();
+
+				// 4. Persist full data to JSON file on disk.
+				const pointId = dataPointCounter++;
+				const dataKey = `${input.datasetName}_${pointId}`;
+
+				// Store in memory instead of writing to file
+				collectedData[dataKey] = rows;
+
+				// 5. Build preview JSON according to truncation rules:
+				//    - Show up to first 5 rows.
+				//    - For arrays longer than 5, show only first 3 entries and then append "... N more items" text.
+				let previewJson: string;
+
+				if (!Array.isArray(rows)) {
+					previewJson = JSON.stringify([rows], null, 2);
+				} else if (rows.length <= 5) {
+					previewJson = JSON.stringify(rows, null, 2);
+				} else {
+					const truncated = rows.slice(0, 3);
+					const json = JSON.stringify(truncated, null, 2);
+					previewJson = json.replace(
+						/\n\]$/,
+						`,\n   ... ${rows.length - 3} more items\n]`
+					);
+				}
+
+				return {
+					dataFile: dataKey,
+					previewJson,
+				};
+			},
+		});
+
+		const plannerAgent = create.TextGenerator.loadsTemplate({
+			model: advancedModel,
+			temperature: 0.2,
+			tools: { dataTool },
+			//maxSteps: 8,
+			stopWhen: stepCountIs(32),
+			loader: templateLoader,
+			prompt: 'planner-agent.md',
+		});
+
+		const planResult = await plannerAgent({
+			datasetName: input.datasetName,
+			datasetDescription: input.datasetDescription,
+			userRequest: input.userRequest,
+			schemaSummary,
+		});
+		const planText = planResult.text;
+
+		if (!planText.trim().startsWith('DASHBOARD PLAN')) {
+			console.log(
+				"[WARN] Planner output does not start with 'DASHBOARD PLAN'. The generator will still attempt to use it."
+			);
+		}
+
+		console.log('\n=== DASHBOARD PLAN ===\n');
+		console.log(planText);
+
+		// 5. Run generator
+		console.log('\nRunning generator LLM...\n');
+		const bodyResult = await dashboardBodyGenerator({
+			datasetName: input.datasetName,
+			datasetDescription: input.datasetDescription,
+			userRequest: input.userRequest,
+			schemaSummary,
+			plan: planText,
+		});
+		const bodyHtml = bodyResult.text;
+
+		// 6. Wrap and save final HTML
+		const finalHtml = await wrapHtml(bodyHtml);
+		writeDashboard(finalHtml);
+
+		console.log('\nDashboard written to:', OUTPUT_HTML);
+
+		// 7. Serve the dashboard
+		console.log('Open this file in your browser to view the generated dashboard.');
+
+		return {
+			plan: planText,
+			outputFile: 'dashboard.html',
+		};
+	} finally {
+		(db as SqliteDatabase | undefined)?.close();
 	}
-
-	console.log('\n=== DASHBOARD PLAN ===\n');
-	console.log(planText);
-
-	// 5. Run generator
-	console.log('\nRunning generator LLM...\n');
-	const bodyResult = await dashboardBodyGenerator({
-		datasetName: input.datasetName,
-		datasetDescription: input.datasetDescription,
-		userRequest: input.userRequest,
-		schemaSummary,
-		plan: planText,
-	});
-	const bodyHtml = bodyResult.text;
-
-	// 6. Wrap and save final HTML
-	const finalHtml = await wrapHtml(bodyHtml);
-	writeDashboard(finalHtml);
-
-	console.log('\nDashboard written to:', OUTPUT_HTML);
-
-	// 7. Serve the dashboard
-	console.log('Open this file in your browser to view the generated dashboard.');
-
-	return {
-		plan: planText,
-		outputFile: 'dashboard.html',
-	};
 }
 
 // ---------------------------------------------------------------------------
