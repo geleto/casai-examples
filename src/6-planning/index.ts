@@ -24,17 +24,11 @@ import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { stepCountIs } from 'ai';
+import input from './input.json';
 
 // ---------------------------------------------------------------------------
 // Types & paths
 // ---------------------------------------------------------------------------
-
-interface DashboardInput {
-	datasetName: string;
-	datasetDescription: string;
-	databaseUrl: string;
-	userRequest: string;
-}
 
 interface SqliteStatement<T = unknown> {
 	all(): T[];
@@ -51,7 +45,7 @@ type SqliteDatabaseConstructor = new (
 ) => SqliteDatabase;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const INPUT_PATH = path.join(__dirname, 'input.json');
+
 const DATA_DIR = path.join(__dirname, 'database');
 const OUTPUT_HTML = path.join(__dirname, 'dashboard.html');
 const rawBetterSqlite3: unknown = BetterSqlite3;
@@ -79,26 +73,6 @@ function openReadonlyDatabase(dbPath: string): SqliteDatabase {
 
 function getDbPath(datasetName: string): string {
 	return path.join(DATA_DIR, `${datasetName}.db`);
-}
-
-async function loadInput(): Promise<DashboardInput> {
-	const raw = await fs.readFile(INPUT_PATH, 'utf-8');
-	const parsed = JSON.parse(raw) as DashboardInput;
-
-	if (
-		!parsed.datasetName ||
-		!parsed.datasetDescription ||
-		!parsed.databaseUrl ||
-		!parsed.userRequest
-	) {
-		throw new Error(
-			'input.json must contain datasetName, datasetDescription, databaseUrl, and userRequest.'
-		);
-	}
-
-
-
-	return parsed;
 }
 
 /**
@@ -242,7 +216,8 @@ async function dashboardOrchestrator(): Promise<{
 	console.log('Casai Planning Pattern Example: Dashboard Generator');
 
 	// 1. Load input.json
-	const input = await loadInput();
+	// Input is imported directly
+
 	console.log('Loaded input.json for dataset:', input.datasetName);
 	console.log('User request:', input.userRequest);
 
@@ -337,7 +312,6 @@ async function dashboardOrchestrator(): Promise<{
 			model: advancedModel,
 			temperature: 0.2,
 			tools: { dataTool },
-			//maxSteps: 8,
 			stopWhen: stepCountIs(32),
 			loader: templateLoader,
 			prompt: 'planner-agent.md',
