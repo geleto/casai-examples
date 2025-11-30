@@ -15,7 +15,7 @@
  * 6. Wrap body in a fixed HTML wrapper and save dashboard.html.
  */
 
-import { create } from 'casai';
+import { create, FileSystemLoader } from 'casai';
 import { basicModel, advancedModel } from '../setup';
 import { z } from 'zod';
 import BetterSqlite3 from 'better-sqlite3';
@@ -56,6 +56,9 @@ const INPUT_PATH = path.join(__dirname, 'input.json');
 const DATA_DIR = path.join(__dirname, 'database');
 const OUTPUT_HTML = path.join(__dirname, 'dashboard.html');
 const rawBetterSqlite3: unknown = BetterSqlite3;
+
+const templatesDir = fileURLToPath(new URL('./templates', import.meta.url));
+const templateLoader = new FileSystemLoader(templatesDir);
 
 // ---------------------------------------------------------------------------
 // Filesystem & DB helpers
@@ -201,32 +204,11 @@ function previewReplacer(_key: string, value: unknown): unknown {
  * Takes a natural-language data request plus schema/context and returns
  * a single SQLite SELECT query as plain text.
  */
-const sqlFromRequestGenerator = create.TextGenerator.withTemplate({
+const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 	model: advancedModel,
 	temperature: 0,
-	prompt: `
-You are a SQL generator for a SQLite database.
-
-You are given:
-- Dataset description:
-{{ datasetDescription }}
-
-- SQLite schema summary:
-{{ schemaSummary }}
-
-- Natural language data request:
-{{ dataRequest }}
-
-Your task:
-- Write a single, syntactically valid SQLite SELECT query that best satisfies the data request.
-- Only use tables and columns that appear in the schema summary.
-- Prefer reasonably small result sets suitable for previews (use LIMIT when appropriate).
-- Do not explain the query.
-- Do not surround it with backticks or any other formatting.
-- Do not include comments.
-
-Return ONLY the SQL SELECT statement.
-`.trim(),
+	loader: templateLoader,
+	prompt: 'sql-generator.md',
 });
 
 const dataTool = create.Function.asTool({
@@ -333,83 +315,14 @@ const dataTool = create.Function.asTool({
 // Planner LLM (Planning Agent)
 // ---------------------------------------------------------------------------
 
-const plannerAgent = create.TextGenerator.withTemplate({
+const plannerAgent = create.TextGenerator.loadsTemplate({
 	model: advancedModel,
 	temperature: 0.2,
 	tools: { dataTool },
 	//maxSteps: 8,
 	stopWhen: stepCountIs(32),
-	prompt: `
-You are a planning agent that designs interactive data dashboards.
-
-You receive:
-- datasetName: {{ datasetName }}
-- datasetDescription: {{ datasetDescription }}
-- userRequest: {{ userRequest }}
-- schemaSummary:
-{{ schemaSummary }}
-
-Your job:
-- Understand the user's dashboard request in the context of a specific SQLite dataset.
-- Break the request into 4-7 dashboard elements (charts, tables, KPI cards, text, etc.).
-- Decide which elements need data previews.
-- For each element that needs data, call the "dataTool" exactly once with:
-  - datasetName
-  - datasetDescription
-  - schemaSummary
-  - dataRequest: a clear natural-language description of the data you want (never SQL).
-- Use only the fields in the previewJson when later referring to data fields in descriptions.
-
-Output:
-- A single text block that follows the dashboard plan format EXACTLY as described below.
-- Do NOT generate HTML, JavaScript, or SQL anywhere in the plan. The dataRequest field must be pure natural language; the tool will handle SQL generation internally.
-
-Required dashboard plan format (you MUST follow this structure):
-
-DASHBOARD PLAN
-==============
-
-Overall intent:
-- <1–3 bullet points summarizing the user request>
-
-Element 1
----------
-id: <id string>
-type: <chart|table|text|kpi|other>
-layoutHint: <full-width|half-width|third-width|auto>
-title: <short title>
-description: <detailed description of what this element shows>
-usesData: <yes|no>
-
-# The following fields exist only when usesData=yes:
-dataRequest: |
-  <natural language description of the needed data>
-
-dataFile: <data key returned by dataTool>
-
-previewJson:
-\`\`\`json
-<preview JSON returned by dataTool>
-\`\`\`
-
-## Element 2
-
-...same format...
-
-## Element 3
-
-...same format...
-
-# Continue numbering Elements sequentially.
-
-Rules:
-- Number elements sequentially (Element 1, Element 2, Element 3, ...).
-- At least one element MUST have usesData: yes and must actually call dataTool.
-- All dataTool calls MUST pass a purely natural-language dataRequest. Do NOT include SQL keywords like SELECT, FROM, WHERE, GROUP BY, etc.
-- Insert the exact dataFile and previewJson from the tool result into the corresponding element.
-- IMPORTANT: The previewJson returned by the tool might contain truncation text (e.g. "... N more items") which makes it invalid JSON. You MUST copy this text EXACTLY as is, do not try to "fix" it or make it valid JSON.
-- Do not output anything before "DASHBOARD PLAN" or after the last element.
-`.trim(),
+	loader: templateLoader,
+	prompt: 'planner-agent.md',
 });
 
 // ---------------------------------------------------------------------------
@@ -421,65 +334,10 @@ const generatorConfig = create.Config({
 	temperature: 0.4,
 });
 
-const dashboardBodyGenerator = create.TextGenerator.withTemplate(
+const dashboardBodyGenerator = create.TextGenerator.loadsTemplate(
 	{
-		prompt: `
-You are a front-end engineer who turns high-level dashboard plans into HTML dashboards.
-
-Your task:
-- Read the dashboard plan and generate exactly ONE <body>...</body> element.
-- Use Bootstrap 5 classes for layout (container, row, col-*, card, text utilities, spacing).
-- Use Chart.js for charts.
-
-You are given:
-- datasetName: {{ datasetName }}
-- datasetDescription: {{ datasetDescription }}
-- userRequest: {{ userRequest }}
-
-Schema summary (for context only):
-{{ schemaSummary }}
-
-Full dashboard plan (you must follow it):
-{{ plan }}
-
-Requirements for the generated HTML:
-
-1) Overall structure
-- Output a single <body>...</body> element and nothing else.
-- Use a top-level <div class="container my-4"> as the main wrapper.
-- Use Bootstrap rows and columns to arrange dashboard elements (full-width, half-width, third-width) based on the layoutHint in the plan.
-
-2) Elements
-- For each element in the plan:
-  - If type=chart, create a <div style="position: relative; height: 300px; width: 100%;"><canvas></canvas></div> inside a Bootstrap card.
-    - CRITICAL: The wrapper div with fixed height is REQUIRED to prevent Chart.js from entering an infinite resizing loop.
-  - If type=table, create a <table class="table table-striped table-sm"> inside a card.
-  - If type=text or kpi, create a card with appropriate headings and text.
-- Use the title and description from the plan for each card.
-
-3) Data fetching & Chart.js
-- For each element with usesData: yes:
-  - Use a <script> at the end of the body to:
-    - Wrap ALL code in "document.addEventListener('DOMContentLoaded', () => { ... });" to ensure the data at the bottom of the file is loaded before execution.
-    - Access the data via window.dashboardData[dataKey] (where dataKey is the 'dataFile' value from the plan).
-    - Do NOT define window.dashboardData or include mock data. It is injected automatically by the system wrapper.
-    - Process the resulting array of objects to build labels and datasets.
-    - Use only field names that actually appear in the previewJson for that element.
-    - Create a new Chart: new Chart(ctx, { type, data, options }).
-- You may define small helper functions in JavaScript inside the <script> block to group/summarize data.
-
-4) Styling & UX
-- Use headings (e.g., <h1>, <h2>) to label the dashboard.
-- Add small descriptive text under each card title describing what the user can see.
-- Ensure the layout looks reasonable on both desktop and smaller screens using Bootstrap grid classes.
-
-Important:
-- Do NOT include <html>, <head>, <link>, or <script src="..."> tags for libraries.
-- Do NOT include any mock data.
-- Assume Bootstrap 5 CSS, Chart.js, and any helper scripts are already included by the outer wrapper.
-
-Return only the <body>...</body> element.
-`.trim(),
+		loader: templateLoader,
+		prompt: 'dashboard-generator.md',
 	},
 	generatorConfig
 );
@@ -488,21 +346,9 @@ Return only the <body>...</body> element.
 // HTML wrapper template (via Cascada Template)
 // ---------------------------------------------------------------------------
 
-const dashboardTemplate = create.Template({
-	template: `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Generated Dashboard</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-  </head>
-  {{ body|safe }}
-  {{ dataScript|safe }}
-</html>`
+const dashboardTemplate = create.Template.loadsTemplate({
+	loader: templateLoader,
+	template: 'dashboard-template.html',
 });
 
 // ---------------------------------------------------------------------------
