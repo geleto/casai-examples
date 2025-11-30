@@ -178,10 +178,6 @@ function extractSchemaSummary(dbPath: string, datasetName: string): string {
 // dataTool implementation
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// dataTool implementation
-// ---------------------------------------------------------------------------
-
 const collectedData: Record<string, unknown> = {};
 let dataPointCounter = 1;
 
@@ -355,7 +351,7 @@ You receive:
 
 Your job:
 - Understand the user's dashboard request in the context of a specific SQLite dataset.
-- Break the request into 3–6 dashboard elements (charts, tables, KPI cards, text, etc.).
+- Break the request into 4-7 dashboard elements (charts, tables, KPI cards, text, etc.).
 - Decide which elements need data previews.
 - For each element that needs data, call the "dataTool" exactly once with:
   - datasetName
@@ -489,10 +485,11 @@ Return only the <body>...</body> element.
 );
 
 // ---------------------------------------------------------------------------
-// HTML wrapper template (fixed, no LLM involvement)
+// HTML wrapper template (via Cascada Template)
 // ---------------------------------------------------------------------------
 
-const HTML_WRAPPER_TEMPLATE = `<!DOCTYPE html>
+const dashboardTemplate = create.Template({
+	template: `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -503,20 +500,18 @@ const HTML_WRAPPER_TEMPLATE = `<!DOCTYPE html>
     />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   </head>
-  {{BODY_PLACEHOLDER}}
-  {{DATA_SCRIPT}}
-</html>
-`;
+  {{ body|safe }}
+  {{ dataScript|safe }}
+</html>`
+});
 
 // ---------------------------------------------------------------------------
 // Script orchestration (plain JS)
 // ---------------------------------------------------------------------------
 
-function wrapHtml(body: string): string {
+async function wrapHtml(body: string): Promise<string> {
 	const dataScript = `<script>window.dashboardData = ${JSON.stringify(collectedData)};</script>`;
-	return HTML_WRAPPER_TEMPLATE
-		.replace('{{BODY_PLACEHOLDER}}', body)
-		.replace('{{DATA_SCRIPT}}', dataScript);
+	return await dashboardTemplate({ body, dataScript });
 }
 
 function writeDashboard(html: string): void {
@@ -576,7 +571,7 @@ async function dashboardOrchestrator(): Promise<{
 	const bodyHtml = bodyResult.text;
 
 	// 6. Wrap and save final HTML
-	const finalHtml = wrapHtml(bodyHtml);
+	const finalHtml = await wrapHtml(bodyHtml);
 	writeDashboard(finalHtml);
 
 	console.log('\nDashboard written to:', OUTPUT_HTML);
