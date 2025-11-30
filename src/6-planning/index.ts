@@ -18,7 +18,7 @@
 import { create, FileSystemLoader } from 'casai';
 import { basicModel, advancedModel } from '../setup';
 import { z } from 'zod';
-import BetterSqlite3 from 'better-sqlite3';
+import Sqlite from 'better-sqlite3';
 import fs from 'fs/promises';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
@@ -30,50 +30,16 @@ import input from './input.json';
 // Types & paths
 // ---------------------------------------------------------------------------
 
-interface SqliteStatement<T = unknown> {
-	all(): T[];
-}
-
-interface SqliteDatabase {
-	prepare<T = unknown>(sql: string): SqliteStatement<T>;
-	close(): void;
-}
-
-type SqliteDatabaseConstructor = new (
-	filename: string,
-	options?: { readonly?: boolean }
-) => SqliteDatabase;
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DATA_DIR = path.join(__dirname, 'database');
 const OUTPUT_HTML = path.join(__dirname, 'dashboard.html');
-const rawBetterSqlite3: unknown = BetterSqlite3;
-const templatesDir = fileURLToPath(new URL('./templates', import.meta.url));
+const TEMPLATES_DIR = fileURLToPath(new URL('./templates', import.meta.url));
 
-const templateLoader = new FileSystemLoader(templatesDir);
+const templateLoader = new FileSystemLoader(TEMPLATES_DIR);
 
 // Global DB instance
-let db!: SqliteDatabase;
-
-// ---------------------------------------------------------------------------
-// Filesystem & DB helpers
-// ---------------------------------------------------------------------------
-
-function ensureDataDir() {
-	if (!existsSync(DATA_DIR)) {
-		mkdirSync(DATA_DIR, { recursive: true });
-	}
-}
-
-function openReadonlyDatabase(dbPath: string): SqliteDatabase {
-	const DatabaseConstructor = rawBetterSqlite3 as SqliteDatabaseConstructor;
-	return new DatabaseConstructor(dbPath, { readonly: true });
-}
-
-function getDbPath(datasetName: string): string {
-	return path.join(DATA_DIR, `${datasetName}.db`);
-}
+let db!: Sqlite.Database;
 
 /**
  * Download the SQLite DB to ./database/<datasetName>.db if it does not exist yet.
@@ -82,8 +48,10 @@ async function downloadDatabaseIfMissing(
 	datasetName: string,
 	databaseUrl: string
 ): Promise<string> {
-	ensureDataDir();
-	const dbPath = getDbPath(datasetName);
+	if (!existsSync(DATA_DIR)) {
+		mkdirSync(DATA_DIR, { recursive: true });
+	}
+	const dbPath = path.join(DATA_DIR, `${datasetName}.db`);
 
 	if (existsSync(dbPath)) {
 		return dbPath;
@@ -112,7 +80,7 @@ async function downloadDatabaseIfMissing(
 function extractSchemaSummary(datasetName: string): string {
 	// db is global now
 	const tables = db
-		.prepare<{ name: string }>(
+		.prepare<[], { name: string }>(
 			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
 		)
 		.all();
@@ -127,14 +95,17 @@ function extractSchemaSummary(datasetName: string): string {
 		const tableName = table.name;
 		const escaped = tableName.replace(/"/g, '""');
 		const pragmaRows = db
-			.prepare<{
-				cid: number;
-				name: string;
-				type: string | null;
-				notnull: 0 | 1;
-				dflt_value: unknown;
-				pk: 0 | 1;
-			}>(`PRAGMA table_info("${escaped}")`)
+			.prepare<
+				[],
+				{
+					cid: number;
+					name: string;
+					type: string | null;
+					notnull: 0 | 1;
+					dflt_value: unknown;
+					pk: 0 | 1;
+				}
+			>(`PRAGMA table_info("${escaped}")`)
 			.all();
 
 		lines.push(`${idx + 1}. ${tableName}`);
@@ -205,9 +176,8 @@ async function wrapHtml(body: string): Promise<string> {
 	return await dashboardTemplate({ body, dataScript });
 }
 
-function writeDashboard(html: string): void {
-	writeFileSync(OUTPUT_HTML, html, 'utf-8');
-}
+// writeDashboard inlined
+
 
 async function dashboardOrchestrator(): Promise<{
 	outputFile?: string;
@@ -228,7 +198,7 @@ async function dashboardOrchestrator(): Promise<{
 	);
 
 	// Initialize global DB
-	db = openReadonlyDatabase(dbPath);
+	db = new Sqlite(dbPath, { readonly: true });
 
 	try {
 		// 3. Extract schema summary
@@ -250,7 +220,9 @@ async function dashboardOrchestrator(): Promise<{
 					),
 			}),
 			execute: async ({ dataRequest }: { dataRequest: string }) => {
-				ensureDataDir();
+				if (!existsSync(DATA_DIR)) {
+					mkdirSync(DATA_DIR, { recursive: true });
+				}
 
 				// 1. Resolve DB path.
 				// We use the authoritative datasetName from the outer scope, so no hallucination possible.
@@ -347,7 +319,7 @@ async function dashboardOrchestrator(): Promise<{
 
 		// 6. Wrap and save final HTML
 		const finalHtml = await wrapHtml(bodyHtml);
-		writeDashboard(finalHtml);
+		writeFileSync(OUTPUT_HTML, finalHtml, 'utf-8');
 
 		console.log('\nDashboard written to:', OUTPUT_HTML);
 
@@ -359,7 +331,7 @@ async function dashboardOrchestrator(): Promise<{
 			outputFile: 'dashboard.html',
 		};
 	} finally {
-		(db as SqliteDatabase | undefined)?.close();
+		db.close();
 	}
 }
 
