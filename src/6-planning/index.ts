@@ -24,7 +24,15 @@ import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { stepCountIs } from 'ai';
-import input from './input.json';
+import inputJson from './input.json';
+
+const input = inputJson as {
+	userRequest: string;
+	datasetName: string;
+	datasetDescription: string;
+	databaseUrl: string;
+	port: number;
+};
 
 // ---------------------------------------------------------------------------
 // Types & paths
@@ -84,7 +92,6 @@ interface TableInfo {
 }
 
 function extractSchemaSummary(datasetName: string): string {
-	// db is global now
 	const tables = db
 		.prepare<[], { name: string }>(
 			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
@@ -133,6 +140,83 @@ const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 	temperature: 0,
 	loader: templateLoader,
 	prompt: 'sql-generator.md',
+});
+
+const dataTool = create.Function.asTool({
+	description:
+		'Queries the local SQLite dataset and returns a JSON data file plus a truncated preview JSON. Full data is stored on disk, not passed through the model.',
+	inputSchema: z.object({
+		dataRequest: z
+			.string()
+			.describe(
+				'Natural-language description of the data needed. This tool will translate the request into a SQLite SELECT query internally.'
+			),
+	}),
+	context: {
+		datasetName: input.datasetName,
+		datasetDescription: input.datasetDescription,
+		schemaSummary: input.schemaSummary,
+	},
+	// parameters combine the context and the input schema
+	execute: async (parameters) => {
+		if (!existsSync(DATA_DIR)) {
+			mkdirSync(DATA_DIR, { recursive: true });
+		}
+
+		// 1. Resolve DB path.
+		// We use the authoritative datasetName from the outer scope, so no hallucination possible.
+		// const dbPath = getDbPath(context.datasetName); // Unused
+
+		// 2. Use LLM to build the SQL query from the natural-language dataRequest.
+		const sqlResult = await sqlFromRequestGenerator({
+			datasetDescription: parameters.datasetDescription,
+			schemaSummary: parameters.schemaSummary,
+			dataRequest: parameters.dataRequest,
+		});
+		const sql = sqlResult.text.trim();
+
+		if (!sql) {
+			throw new Error('[dataTool] SQL generator returned an empty query.');
+		}
+
+		console.log(
+			`[dataTool] Executing SQL generated from natural-language request:\n${sql}\n`
+		);
+
+		// 3. Execute SQL against the local SQLite DB.
+		// Used global db
+		const rows = db.prepare(sql).all();
+
+		// 4. Persist full data to JSON file on disk.
+		const pointId = dataPointCounter++;
+		const dataKey = `${parameters.datasetName}_${pointId}`;
+
+		// Store in memory instead of writing to file
+		collectedData[dataKey] = rows;
+
+		// 5. Build preview JSON according to truncation rules:
+		//    - Show up to first 5 rows.
+		//    - For arrays longer than 5, show only first 3 entries and then append "... N more items" text.
+		let previewJson: string;
+
+		if (!Array.isArray(rows)) {
+			previewJson = JSON.stringify([rows], null, 2);
+		} else if (rows.length <= 5) {
+			previewJson = JSON.stringify(rows, null, 2);
+		} else {
+			const truncated = rows.slice(0, 3);
+			const json = JSON.stringify(truncated, null, 2);
+			previewJson = json.replace(
+				/\n\]$/,
+				`,\n   ... ${rows.length - 3} more items\n]`
+			);
+		}
+
+		return {
+			dataFile: dataKey,
+			previewJson,
+		};
+	},
 });
 
 
@@ -204,77 +288,6 @@ async function dashboardOrchestrator(): Promise<{
 
 		// 4. Run planner
 		console.log('\nRunning planner LLM...\n');
-
-		const dataTool = create.Function.asTool({
-			description:
-				'Queries the local SQLite dataset and returns a JSON data file plus a truncated preview JSON. Full data is stored on disk, not passed through the model.',
-			inputSchema: z.object({
-				dataRequest: z
-					.string()
-					.describe(
-						'Natural-language description of the data needed. This tool will translate the request into a SQLite SELECT query internally.'
-					),
-			}),
-			execute: async ({ dataRequest }: { dataRequest: string }) => {
-				if (!existsSync(DATA_DIR)) {
-					mkdirSync(DATA_DIR, { recursive: true });
-				}
-
-				// 1. Resolve DB path.
-				// We use the authoritative datasetName from the outer scope, so no hallucination possible.
-				// const dbPath = getDbPath(input.datasetName); // Unused
-
-				// 2. Use LLM to build the SQL query from the natural-language dataRequest.
-				const sqlResult = await sqlFromRequestGenerator({
-					datasetDescription: input.datasetDescription,
-					schemaSummary,
-					dataRequest,
-				});
-				const sql = sqlResult.text.trim();
-
-				if (!sql) {
-					throw new Error('[dataTool] SQL generator returned an empty query.');
-				}
-
-				console.log(
-					`[dataTool] Executing SQL generated from natural-language request:\n${sql}\n`
-				);
-
-				// 3. Execute SQL against the local SQLite DB.
-				// Used global db
-				const rows = db.prepare(sql).all();
-
-				// 4. Persist full data to JSON file on disk.
-				const pointId = dataPointCounter++;
-				const dataKey = `${input.datasetName}_${pointId}`;
-
-				// Store in memory instead of writing to file
-				collectedData[dataKey] = rows;
-
-				// 5. Build preview JSON according to truncation rules:
-				//    - Show up to first 5 rows.
-				//    - For arrays longer than 5, show only first 3 entries and then append "... N more items" text.
-				let previewJson: string;
-
-				if (!Array.isArray(rows)) {
-					previewJson = JSON.stringify([rows], null, 2);
-				} else if (rows.length <= 5) {
-					previewJson = JSON.stringify(rows, null, 2);
-				} else {
-					const truncated = rows.slice(0, 3);
-					const json = JSON.stringify(truncated, null, 2);
-					previewJson = json.replace(
-						/\n\]$/,
-						`,\n   ... ${rows.length - 3} more items\n]`
-					);
-				}
-
-				return {
-					dataFile: dataKey,
-					previewJson,
-				};
-			},
-		});
 
 		const plannerAgent = create.TextGenerator.loadsTemplate({
 			model: advancedModel,
