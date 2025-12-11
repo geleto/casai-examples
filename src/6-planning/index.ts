@@ -15,17 +15,17 @@
  * 6. Wrap body in a fixed HTML wrapper and save dashboard.html.
  */
 
-import { create, FileSystemLoader } from 'casai';
-import { basicModel, advancedModel } from '../setup';
-import { z } from 'zod';
-import Sqlite from 'better-sqlite3';
-import fs from 'fs/promises';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { basicModel, advancedModel } from '../setup';
+import { create, FileSystemLoader } from 'casai';
+import Sqlite from 'better-sqlite3';
 import { stepCountIs } from 'ai';
-import inputJson from './input.json';
+import { fileURLToPath } from 'url';
+import fs from 'fs/promises';
+import path from 'path';
+import { z } from 'zod';
 
+import inputJson from './input.json';
 const input = inputJson as {
 	userRequest: string;
 	datasetName: string;
@@ -33,52 +33,32 @@ const input = inputJson as {
 	databaseUrl: string;
 	port: number;
 };
-
-// ---------------------------------------------------------------------------
-// Types & paths
-// ---------------------------------------------------------------------------
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const OUTPUT_HTML = path.join(__dirname, 'dashboard.html');
-const TEMPLATES_DIR = fileURLToPath(new URL('./templates', import.meta.url));
-
-const templateLoader = new FileSystemLoader(TEMPLATES_DIR);
+const BASE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const OUTPUT_HTML = path.join(BASE_DIR, 'dashboard.html');
+const templateLoader = new FileSystemLoader(fileURLToPath(new URL('./templates', import.meta.url)));
 
 // ---------------------------------------------------------------------------
 // Database class
 // ---------------------------------------------------------------------------
-
 class Database {
-	private dbPath: string | null = null;
-	private db: Sqlite.Database | null = null;
+	private db!: Sqlite.Database;
 
 	constructor(
 		readonly datasetName: string,
 		readonly datasetDescription: string,
 		readonly databaseUrl: string
-	) {
-		// Constructor just initializes the instance
-		// Database will be opened via open() method
-	}
+	) { }
 
-	/**
-	 * Loads the database if necessary and opens it
-	 */
+	// Loads the database if necessary and opens it
 	async open() {
-		// If already opened, return early
-		if (this.db) {
-			return;
-		}
-
-		const dataDir = path.join(__dirname, 'database');
+		const dataDir = path.join(BASE_DIR, 'database');
 		if (!existsSync(dataDir)) {
 			mkdirSync(dataDir, { recursive: true });
 		}
-		this.dbPath = path.join(dataDir, `${this.datasetName}.db`);
+		const dbPath = path.join(dataDir, `${this.datasetName}.db`);
 
 		// Download database if it doesn't exist
-		if (!existsSync(this.dbPath)) {
+		if (!existsSync(dbPath)) {
 			console.log(
 				`Downloading SQLite DB for dataset "${this.datasetName}" from ${this.databaseUrl}...`
 			);
@@ -90,32 +70,24 @@ class Database {
 			}
 			const arrayBuffer = await response.arrayBuffer();
 			const buffer = Buffer.from(arrayBuffer);
-			await fs.writeFile(this.dbPath, buffer);
-			console.log(`Saved DB to ${this.dbPath}`);
+			await fs.writeFile(dbPath, buffer);
+			console.log(`Saved DB to ${dbPath}`);
 		}
 
 		// Open the database (whether just downloaded or already existed)
-		this.db = new Sqlite(this.dbPath, { readonly: true });
+		this.db = new Sqlite(dbPath, { readonly: true });
 	}
 
 	getDb(): Sqlite.Database {
-		if (!this.db) {
-			throw new Error('Database not opened. Call open() first.');
-		}
 		return this.db;
 	}
 
-	/**
-	 * Extracts a concise schema summary from the database.
-	 * Database must be opened first.
-	 */
+	// Extracts a concise schema summary from the database. DB must be opened first.
 	getSchemaSummary(): string {
 		const db = this.getDb();
-		const tables = db
-			.prepare<[], { name: string }>(
-				"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-			)
-			.all();
+		const tables = db.prepare<[], { name: string }>(
+			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+		).all();
 
 		interface TableInfo {
 			name: string;
@@ -148,49 +120,34 @@ class Database {
 		return lines.join('\n').trimEnd();
 	}
 
-	/**
-	 * Closes the database connection.
-	 */
 	close(): void {
-		if (this.db) {
-			this.db.close();
-			this.db = null;
-		}
+		this.db.close();
 	}
 }
 
-// ---------------------------------------------------------------------------
-// dataTool implementation
-// ---------------------------------------------------------------------------
-
-const collectedData: Record<string, unknown> = {};
-let dataPointCounter = 1;
-
-/**
- * LLM-powered SQL generator.
- * Takes a natural-language data request plus schema/context and returns
- * a single SQLite SELECT query as plain text.
- */
+// LLM-powered SQL generator. Takes a natural-language data request plus
+// schema/context and returns a single SQLite SELECT query as plain text.
 const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 	model: advancedModel,
-	temperature: 0,
 	loader: templateLoader,
 	prompt: 'sql-generator.md',
 });
 
-/**
- * Creates a dataTool instance bound to a specific Database instance.
- */
+// ---------------------------------------------------------------------------
+// dataTool implementation
+// ---------------------------------------------------------------------------
+const collectedData: Record<string, unknown> = {};
+let dataPointCounter = 1;
+
+// Creates a dataTool instance bound to a specific Database instance.
 function createDataTool(database: Database, schemaSummary: string) {
 	return create.Function.asTool({
 		description:
-			'Queries the local SQLite dataset and returns a JSON data file plus a truncated preview JSON. Full data is stored on disk, not passed through the model.',
+			'Queries the local SQLite dataset and returns a JSON data file plus a truncated preview JSON. Full result sets are injected directly into the generated dashboard HTML (after the LLM steps) so raw data never flows through a model.',
 		inputSchema: z.object({
-			dataRequest: z
-				.string()
-				.describe(
-					'Natural-language description of the data needed. This tool will translate the request into a SQLite SELECT query internally.'
-				),
+			dataRequest: z.string().describe(
+				'Natural-language description of the data needed. This tool will translate the request into a SQLite SELECT query internally.'
+			),
 		}),
 		context: {
 			datasetName: database.datasetName,
@@ -206,31 +163,20 @@ function createDataTool(database: Database, schemaSummary: string) {
 				dataRequest: parameters.dataRequest,
 			});
 			const sql = sqlResult.text.trim();
-
-			if (!sql) {
-				throw new Error('[dataTool] SQL generator returned an empty query.');
-			}
-
-			console.log(
-				`[dataTool] Executing SQL generated from natural-language request:\n${sql}\n`
-			);
+			console.log(`[dataTool] Executing generated SQL:\n${sql}\n`);
 
 			// 2. Execute SQL against the local SQLite DB.
 			const db = database.getDb();
 			const rows = db.prepare(sql).all();
 
-			// 3. Persist full data to JSON file on disk.
+			// 3. Persist full data for later inline injection into dashboard.html.
 			const pointId = dataPointCounter++;
 			const dataKey = `${parameters.datasetName}_${pointId}`;
-
-			// Store in memory instead of writing to file
-			collectedData[dataKey] = rows;
+			collectedData[dataKey] = rows; // Store in memory
 
 			// 4. Build preview JSON according to truncation rules:
-			//    - Show up to first 5 rows.
-			//    - For arrays longer than 5, show only first 3 entries and then append "... N more items" text.
+			// Show up to first 5 rows, if more than 5, show only first 3 entries and then append "... N more items" text.
 			let previewJson: string;
-
 			if (!Array.isArray(rows)) {
 				previewJson = JSON.stringify([rows], null, 2);
 			} else if (rows.length <= 5) {
@@ -244,91 +190,52 @@ function createDataTool(database: Database, schemaSummary: string) {
 				);
 			}
 
-			return {
-				dataFile: dataKey,
-				previewJson,
-			};
+			return { dataFile: dataKey, previewJson };
 		},
 	});
 }
 
-
-
 // ---------------------------------------------------------------------------
 // Generator LLM (Dashboard HTML Body)
 // ---------------------------------------------------------------------------
-
-const generatorConfig = create.Config({
+const dashboardBodyGenerator = create.TextGenerator.loadsTemplate({
 	model: basicModel,
-	temperature: 0.4,
+	loader: templateLoader,
+	prompt: 'dashboard-generator.md',
 });
 
-const dashboardBodyGenerator = create.TextGenerator.loadsTemplate(
-	{
-		loader: templateLoader,
-		prompt: 'dashboard-generator.md',
-	},
-	generatorConfig
-);
-
 // ---------------------------------------------------------------------------
-// HTML wrapper template (via Cascada Template)
+// Cascada HTML wrappertemplate
 // ---------------------------------------------------------------------------
-
 const dashboardTemplate = create.Template.loadsTemplate({
 	loader: templateLoader,
 	template: 'dashboard-template.html',
 });
 
 // ---------------------------------------------------------------------------
-// Script orchestration (plain JS)
+// Script orchestration
 // ---------------------------------------------------------------------------
-
-async function wrapHtml(body: string): Promise<string> {
-	const dataScript = `<script>window.dashboardData = ${JSON.stringify(collectedData)};</script>`;
-	return await dashboardTemplate({ body, dataScript });
-}
-
-// writeDashboard inlined
-
-
-async function dashboardOrchestrator(): Promise<{
-	outputFile?: string;
-	plan?: string;
-}> {
+async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: string; }> {
 	console.log('Casai Planning Pattern Example: Dashboard Generator');
+	console.log(`User request: ${input.userRequest}\n Dataset: ${input.datasetName}`);
 
-	// 1. Load input.json
-	// Input is imported directly
-
-	console.log('Loaded input.json for dataset:', input.datasetName);
-	console.log('User request:', input.userRequest);
-
-	// 2. Initialize database
-	const database = new Database(
-		input.datasetName,
-		input.datasetDescription,
-		input.databaseUrl
-	);
-
-	// 3. Ensure DB is downloaded and open it
-	await database.open();
-
+	// 1. Initialize database
+	const database = new Database(input.datasetName, input.datasetDescription, input.databaseUrl);
 	try {
-		// 4. Extract schema summary
-		const schemaSummary = database.getSchemaSummary();
-		console.log('\n=== Schema Summary ===\n');
-		console.log(schemaSummary);
+		// 2. Ensure DB is downloaded and open it
+		await database.open();
 
-		// 5. Create dataTool bound to this database instance
+		// 3. Extract schema summary
+		const schemaSummary = database.getSchemaSummary();
+		console.log(`\n=== Schema Summary ===\n${schemaSummary}`);
+
+		// 4. Create dataTool bound to this database instance
 		const dataTool = createDataTool(database, schemaSummary);
 
-		// 6. Run planner
+		// 5. Run planner
 		console.log('\nRunning planner LLM...\n');
-
 		const plannerAgent = create.TextGenerator.loadsTemplate({
 			model: advancedModel,
-			temperature: 0.2,
 			tools: { dataTool },
 			stopWhen: stepCountIs(32),
 			loader: templateLoader,
@@ -343,16 +250,9 @@ async function dashboardOrchestrator(): Promise<{
 		});
 		const planText = planResult.text;
 
-		if (!planText.trim().startsWith('DASHBOARD PLAN')) {
-			console.log(
-				"[WARN] Planner output does not start with 'DASHBOARD PLAN'. The generator will still attempt to use it."
-			);
-		}
+		console.log(`\n=== DASHBOARD PLAN ===\n${planText}`);
 
-		console.log('\n=== DASHBOARD PLAN ===\n');
-		console.log(planText);
-
-		// 7. Run generator
+		// 6. Run generator
 		console.log('\nRunning generator LLM...\n');
 		const bodyResult = await dashboardBodyGenerator({
 			datasetName: input.datasetName,
@@ -363,15 +263,15 @@ async function dashboardOrchestrator(): Promise<{
 		});
 		const bodyHtml = bodyResult.text;
 
-		// 8. Wrap and save final HTML
-		const finalHtml = await wrapHtml(bodyHtml);
+		// 7. Wrap and save final HTML
+		const dataScript = `<script>window.dashboardData = ${JSON.stringify(collectedData)};</script>`;
+		const finalHtml = await dashboardTemplate({ bodyHtml, dataScript });
 		writeFileSync(OUTPUT_HTML, finalHtml, 'utf-8');
 
 		console.log('\nDashboard written to:', OUTPUT_HTML);
 
-		// 9. Serve the dashboard
+		// 7. Serve the dashboard
 		console.log('Open this file in your browser to view the generated dashboard.');
-
 		return {
 			plan: planText,
 			outputFile: 'dashboard.html',
@@ -384,7 +284,6 @@ async function dashboardOrchestrator(): Promise<{
 // ---------------------------------------------------------------------------
 // Execution entrypoint
 // ---------------------------------------------------------------------------
-
 console.log('--- Dashboard Planning Example ---');
 try {
 	const result = await dashboardOrchestrator();
