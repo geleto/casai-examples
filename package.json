@@ -17,7 +17,7 @@
     "@ai-sdk/openai": "^2.0.30",
     "ai": "^5.0.44",
     "better-sqlite3": "^12.4.6",
-    "casai": "^0.3.2",
+    "casai": "^0.3.3",
     "semachunk": "^0.3.2",
     "tsx": "^4.20.3",
     "vectra": "^0.11.1"
