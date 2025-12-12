@@ -138,17 +138,20 @@ const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 const collectedData: Record<string, unknown> = {};
 let dataPointCounter = 1;
 
-interface DashboardElement {
-	id: string;
-	type: 'chart' | 'table' | 'text' | 'kpi' | 'other';
-	layoutHint: 'full-width' | 'half-width' | 'third-width' | 'auto';
-	title: string;
-	description: string;
-	usesData: boolean;
-	dataRequest?: string;
+const dashboardElementSchema = z.object({
+	id: z.string().describe('Unique identifier for the element'),
+	type: z.enum(['chart', 'table', 'text', 'kpi', 'other']).describe('Type of dashboard element'),
+	layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']).describe('Suggested layout width'),
+	title: z.string().describe('Display title for the element'),
+	description: z.string().describe('Brief description of what this element shows'),
+	usesData: z.boolean().describe('Whether this element requires data fetching'),
+	dataRequest: z.string().optional().describe('Natural language description of needed data (if usesData is true)'),
+});
+
+type DashboardElement = z.infer<typeof dashboardElementSchema> & {
 	dataFile?: string;
 	previewJson?: string;
-}
+};
 
 // Helper function to execute SQL (exposed to script)
 function executeSql(sql: string, database: Database): any[] {
@@ -221,15 +224,7 @@ const planTemplate = create.Template.loadsTemplate({
 // Script orchestration
 // ---------------------------------------------------------------------------
 
-const dashboardElementSchema = z.object({
-	id: z.string().describe('Unique identifier for the element'),
-	type: z.enum(['chart', 'table', 'text', 'kpi', 'other']).describe('Type of dashboard element'),
-	layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']).describe('Suggested layout width'),
-	title: z.string().describe('Display title for the element'),
-	description: z.string().describe('Brief description of what this element shows'),
-	usesData: z.boolean().describe('Whether this element requires data fetching'),
-	dataRequest: z.string().optional().describe('Natural language description of needed data (if usesData is true)'),
-});
+
 
 function createElementProcessor(database: Database, schemaSummary: string) {
 	return create.Script({
