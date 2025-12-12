@@ -188,7 +188,6 @@ function processDataResult(
 			`,\n   ... ${rows.length - 3} more items\n]`
 		);
 	}
-
 	return {
 		...element,
 		dataFile: dataKey,
@@ -221,6 +220,59 @@ const planTemplate = create.Template.loadsTemplate({
 // ---------------------------------------------------------------------------
 // Script orchestration
 // ---------------------------------------------------------------------------
+
+const dashboardElementSchema = z.object({
+	id: z.string().describe('Unique identifier for the element'),
+	type: z.enum(['chart', 'table', 'text', 'kpi', 'other']).describe('Type of dashboard element'),
+	layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']).describe('Suggested layout width'),
+	title: z.string().describe('Display title for the element'),
+	description: z.string().describe('Brief description of what this element shows'),
+	usesData: z.boolean().describe('Whether this element requires data fetching'),
+	dataRequest: z.string().optional().describe('Natural language description of needed data (if usesData is true)'),
+});
+
+function createElementProcessor(database: Database, schemaSummary: string) {
+	return create.Script({
+		context: {
+			sqlFromRequestGenerator,
+			executeSql: (sql: string) => executeSql(sql, database),
+			processDataResult: (element: DashboardElement, rows: any[]) => processDataResult(element, rows, database),
+			datasetDescription: input.datasetDescription,
+			schemaSummary,
+		},
+		schema: z.array(dashboardElementSchema.extend({
+			dataFile: z.string().optional(),
+			previewJson: z.string().optional(),
+		})),
+		script: `
+			:data
+			@data = []
+			for element in elements
+				var processed = element
+				if element.usesData
+					if element.dataRequest
+						var sqlResult = sqlFromRequestGenerator({
+							datasetDescription: datasetDescription,
+							schemaSummary: schemaSummary,
+							dataRequest: element.dataRequest
+						}).text
+						var rows = executeSql(sqlResult)
+						processed = processDataResult(element, rows)
+					endif
+				endif
+				@data.push(processed)
+			endfor`
+	});
+}
+
+const plannerAgent = create.ObjectGenerator.loadsTemplate({
+	model: advancedModel,
+	loader: templateLoader,
+	prompt: 'planner-agent.md',
+	output: 'array',
+	schema: dashboardElementSchema,
+});
+
 async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: string; }> {
 	console.log('Casai Planning Pattern Example: Dashboard Generator');
 	console.log(`User request: ${input.userRequest}\n Dataset: ${input.datasetName}`);
@@ -238,24 +290,6 @@ async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: st
 		// 5. Run planner with structured output
 		console.log('\nRunning planner LLM (Structured Output)...\n');
 
-		const dashboardElementSchema = z.object({
-			id: z.string().describe('Unique identifier for the element'),
-			type: z.enum(['chart', 'table', 'text', 'kpi', 'other']).describe('Type of dashboard element'),
-			layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']).describe('Suggested layout width'),
-			title: z.string().describe('Display title for the element'),
-			description: z.string().describe('Brief description of what this element shows'),
-			usesData: z.boolean().describe('Whether this element requires data fetching'),
-			dataRequest: z.string().optional().describe('Natural language description of needed data (if usesData is true)'),
-		});
-
-		const plannerAgent = create.ObjectGenerator.loadsTemplate({
-			model: advancedModel,
-			loader: templateLoader,
-			prompt: 'planner-agent.md',
-			output: 'array',
-			schema: dashboardElementSchema,
-		});
-
 		const planResult = await plannerAgent({
 			datasetName: input.datasetName,
 			datasetDescription: input.datasetDescription,
@@ -267,37 +301,7 @@ async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: st
 		console.log(`\nPlanner returned ${elements.length} elements. Processing data requests...`);
 
 		// 6. Process elements (fetch data) using Cascada Script for concurrency
-		const elementProcessor = create.Script({
-			context: {
-				sqlFromRequestGenerator,
-				executeSql: (sql: string) => executeSql(sql, database),
-				processDataResult: (element: DashboardElement, rows: any[]) => processDataResult(element, rows, database),
-				datasetDescription: input.datasetDescription,
-				schemaSummary,
-			},
-			schema: z.array(dashboardElementSchema.extend({
-				dataFile: z.string().optional(),
-				previewJson: z.string().optional(),
-			})),
-			script: `
-				:data
-				@data = []
-				for element in elements
-					var processed = element
-					if element.usesData
-						if element.dataRequest
-							var sqlResult = sqlFromRequestGenerator({
-								datasetDescription: datasetDescription,
-								schemaSummary: schemaSummary,
-								dataRequest: element.dataRequest
-							}).text
-							var rows = executeSql(sqlResult)
-							processed = processDataResult(element, rows)
-						endif
-					endif
-					@data.push(processed)
-				endfor`
-		});
+		const elementProcessor = createElementProcessor(database, schemaSummary);
 
 		const processedElements = (await elementProcessor({ elements })) as unknown as DashboardElement[];
 
