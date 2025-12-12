@@ -133,7 +133,7 @@ const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 });
 
 // ---------------------------------------------------------------------------
-// Data Fetching Logic (formerly dataTool)
+// Data Fetching Logic
 // ---------------------------------------------------------------------------
 const collectedData: Record<string, unknown> = {};
 let dataPointCounter = 1;
@@ -150,41 +150,31 @@ interface DashboardElement {
 	previewJson?: string;
 }
 
-async function processDashboardElement(
-	element: DashboardElement,
-	database: Database,
-	schemaSummary: string
-): Promise<DashboardElement> {
-	if (!element.usesData || !element.dataRequest) {
-		return element;
-	}
-
-	// 1. Use LLM to build the SQL query from the natural-language dataRequest.
-	const sqlResult = await sqlFromRequestGenerator({
-		datasetDescription: database.datasetDescription,
-		schemaSummary: schemaSummary,
-		dataRequest: element.dataRequest,
-	});
-	const sql = sqlResult.text.trim();
-	console.log(`[DataProcessing] Executing generated SQL for "${element.title}":\n${sql}\n`);
-
-	// 2. Execute SQL against the local SQLite DB.
+// Helper function to execute SQL (exposed to script)
+function executeSql(sql: string, database: Database): any[] {
+	console.log(`[DataProcessing] Executing SQL:\n${sql}\n`);
 	const db = database.getDb();
-	let rows: any[];
 	try {
-		rows = db.prepare(sql).all();
+		return db.prepare(sql).all();
 	} catch (err: unknown) {
 		const errorMessage = err instanceof Error ? err.message : String(err);
 		console.error(`SQL Execution failed: ${errorMessage}`);
-		rows = [];
+		return [];
 	}
+}
 
-	// 3. Persist full data for later inline injection into dashboard.html.
+// Helper function to process results and update collectedData (exposed to script)
+function processDataResult(
+	element: DashboardElement,
+	rows: any[],
+	database: Database
+): DashboardElement {
+	// Persist full data for later inline injection into dashboard.html.
 	const pointId = dataPointCounter++;
 	const dataKey = `${database.datasetName}_${pointId}`;
 	collectedData[dataKey] = rows; // Store in memory
 
-	// 4. Build preview JSON according to truncation rules:
+	// Build preview JSON according to truncation rules:
 	let previewJson: string;
 	if (!Array.isArray(rows)) {
 		previewJson = JSON.stringify([rows], null, 2);
@@ -273,35 +263,44 @@ async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: st
 		const elements = planResult.object;
 		console.log(`\nPlanner returned ${elements.length} elements. Processing data requests...`);
 
-		// 6. Process elements (fetch data)
-		const processedElements = [];
-		for (const element of elements) {
-			processedElements.push(await processDashboardElement(element, database, schemaSummary));
-		}
+		// 6. Process elements (fetch data) using Cascada Script for concurrency
+		const elementProcessor = create.Script({
+			context: {
+				sqlFromRequestGenerator,
+				executeSql: (sql: string) => executeSql(sql, database),
+				processDataResult: (element: DashboardElement, rows: any[]) => processDataResult(element, rows, database),
+				datasetDescription: input.datasetDescription,
+				schemaSummary,
+			},
+			schema: z.array(z.any()),
+			script: `
+				:data
+				@data = []
+				for element in elements
+					var processed = element
+					if element.usesData
+						if element.dataRequest
+							var sqlResult = sqlFromRequestGenerator({
+								datasetDescription: datasetDescription,
+								schemaSummary: schemaSummary,
+								dataRequest: element.dataRequest
+							}).text
+							var rows = executeSql(sqlResult)
+							processed = processDataResult(element, rows)
+						endif
+					endif
+					@data.push(processed)
+				endfor`
+		});
+
+		const processedElements = (await elementProcessor({ elements })) as unknown as DashboardElement[];
 
 		// 7. Generate Plan Text using Template
 		const overallIntent = `- User Request: ${input.userRequest}`;
 
-		const elementsText = processedElements.map((el, idx) => {
-			let text = `Element ${idx + 1}\n---------\n`;
-			text += `id: ${el.id}\n`;
-			text += `type: ${el.type}\n`;
-			text += `layoutHint: ${el.layoutHint}\n`;
-			text += `title: ${el.title}\n`;
-			text += `description: ${el.description}\n`;
-			text += `usesData: ${el.usesData ? 'yes' : 'no'}\n`;
-
-			if (el.usesData) {
-				text += `\ndataRequest: |\n  ${el.dataRequest}\n\n`;
-				text += `dataFile: ${el.dataFile}\n\n`;
-				text += `previewJson:\n\`\`\`json\n${el.previewJson}\n\`\`\`\n`;
-			}
-			return text;
-		}).join('\n');
-
 		const planText = await planTemplate({
 			overallIntent,
-			elementsText
+			elements: processedElements
 		});
 
 		console.log(`\n=== DASHBOARD PLAN ===\n${planText}`);
