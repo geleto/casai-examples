@@ -122,8 +122,10 @@ class Database {
 	}
 }
 
+// ---------------------------------------------------------------------------
 // LLM-powered SQL generator. Takes a natural-language data request plus
 // schema/context and returns a single SQLite SELECT query as plain text.
+// ---------------------------------------------------------------------------
 const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 	model: advancedModel,
 	loader: templateLoader,
@@ -150,13 +152,6 @@ type DashboardElement = z.infer<typeof dashboardElementSchema> & {
 	dataFile?: string;
 	previewJson?: string;
 };
-
-
-
-// Helper function to process results and update collectedData (exposed to script)
-
-
-
 
 // ---------------------------------------------------------------------------
 // Generator LLM (Dashboard HTML Body)
@@ -188,9 +183,6 @@ const schemaSummaryTemplate = create.Template.loadsTemplate({
 // ---------------------------------------------------------------------------
 // Script orchestration
 // ---------------------------------------------------------------------------
-
-
-
 function createElementProcessor(database: Database, schemaSummary: string) {
 	return create.Script({
 		context: {
