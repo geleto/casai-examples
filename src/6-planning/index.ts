@@ -153,50 +153,12 @@ type DashboardElement = z.infer<typeof dashboardElementSchema> & {
 	previewJson?: string;
 };
 
-// Helper function to execute SQL (exposed to script)
-function executeSql(sql: string, database: Database): any[] {
-	console.log(`[DataProcessing] Executing SQL:\n${sql}\n`);
-	const db = database.getDb();
-	try {
-		return db.prepare(sql).all();
-	} catch (err: unknown) {
-		const errorMessage = err instanceof Error ? err.message : String(err);
-		console.error(`SQL Execution failed: ${errorMessage}`);
-		return [];
-	}
-}
+
 
 // Helper function to process results and update collectedData (exposed to script)
-function processDataResult(
-	element: DashboardElement,
-	rows: any[],
-	database: Database
-): DashboardElement {
-	// Persist full data for later inline injection into dashboard.html.
-	const pointId = dataPointCounter++;
-	const dataKey = `${database.datasetName}_${pointId}`;
-	collectedData[dataKey] = rows; // Store in memory
 
-	// Build preview JSON according to truncation rules:
-	let previewJson: string;
-	if (!Array.isArray(rows)) {
-		previewJson = JSON.stringify([rows], null, 2);
-	} else if (rows.length <= 5) {
-		previewJson = JSON.stringify(rows, null, 2);
-	} else {
-		const truncated = rows.slice(0, 3);
-		const json = JSON.stringify(truncated, null, 2);
-		previewJson = json.replace(
-			/\n\]$/,
-			`,\n   ... ${rows.length - 3} more items\n]`
-		);
-	}
-	return {
-		...element,
-		dataFile: dataKey,
-		previewJson,
-	};
-}
+
+
 
 // ---------------------------------------------------------------------------
 // Generator LLM (Dashboard HTML Body)
@@ -230,8 +192,38 @@ function createElementProcessor(database: Database, schemaSummary: string) {
 	return create.Script({
 		context: {
 			sqlFromRequestGenerator,
-			executeSql: (sql: string) => executeSql(sql, database),
-			processDataResult: (element: DashboardElement, rows: any[]) => processDataResult(element, rows, database),
+			executeSql: (sql: string) => {
+				console.log(`[DataProcessing] Executing SQL:\n${sql}\n`);
+				const db = database.getDb();
+				try {
+					return db.prepare(sql).all();
+				} catch (err: unknown) {
+					const errorMessage = err instanceof Error ? err.message : String(err);
+					console.error(`SQL Execution failed: ${errorMessage}`);
+					return [];
+				}
+			},
+			generatePreviewJson: (rows: any[]) => {
+				if (!Array.isArray(rows)) {
+					return JSON.stringify([rows], null, 2);
+				} else if (rows.length <= 5) {
+					return JSON.stringify(rows, null, 2);
+				} else {
+					const truncated = rows.slice(0, 3);
+					const json = JSON.stringify(truncated, null, 2);
+					return json.replace(
+						/\n\]$/,
+						`,\n   ... ${rows.length - 3} more items\n]`
+					);
+				}
+			},
+			saveData: (rows: any[]) => {
+				const pointId = dataPointCounter++;
+				const dataKey = `${database.datasetName}_${pointId}`;
+				collectedData[dataKey] = rows;
+				return dataKey;
+			},
+			merge: (target: any, source: any) => ({ ...target, ...source }),
 			datasetDescription: input.datasetDescription,
 			schemaSummary,
 		},
@@ -252,7 +244,9 @@ function createElementProcessor(database: Database, schemaSummary: string) {
 							dataRequest: element.dataRequest
 						}).text
 						var rows = executeSql(sqlResult)
-						processed = processDataResult(element, rows)
+						var preview = generatePreviewJson(rows)
+						var key = saveData(rows)
+						processed = merge(element, { previewJson: preview, dataFile: key })
 					endif
 				endif
 				@data.push(processed)
