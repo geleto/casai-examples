@@ -237,20 +237,23 @@ async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: st
 
 		// 5. Run planner with structured output
 		console.log('\nRunning planner LLM (Structured Output)...\n');
+
+		const dashboardElementSchema = z.object({
+			id: z.string().describe('Unique identifier for the element'),
+			type: z.enum(['chart', 'table', 'text', 'kpi', 'other']).describe('Type of dashboard element'),
+			layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']).describe('Suggested layout width'),
+			title: z.string().describe('Display title for the element'),
+			description: z.string().describe('Brief description of what this element shows'),
+			usesData: z.boolean().describe('Whether this element requires data fetching'),
+			dataRequest: z.string().optional().describe('Natural language description of needed data (if usesData is true)'),
+		});
+
 		const plannerAgent = create.ObjectGenerator.loadsTemplate({
 			model: advancedModel,
 			loader: templateLoader,
 			prompt: 'planner-agent.md',
 			output: 'array',
-			schema: z.object({
-				id: z.string(),
-				type: z.enum(['chart', 'table', 'text', 'kpi', 'other']),
-				layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']),
-				title: z.string(),
-				description: z.string(),
-				usesData: z.boolean(),
-				dataRequest: z.string().optional().describe('Natural language description of needed data'),
-			}),
+			schema: dashboardElementSchema,
 		});
 
 		const planResult = await plannerAgent({
@@ -272,7 +275,10 @@ async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: st
 				datasetDescription: input.datasetDescription,
 				schemaSummary,
 			},
-			schema: z.array(z.any()),
+			schema: z.array(dashboardElementSchema.extend({
+				dataFile: z.string().optional(),
+				previewJson: z.string().optional(),
+			})),
 			script: `
 				:data
 				@data = []
