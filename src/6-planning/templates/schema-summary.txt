@@ -1,0 +1,11 @@
+Dataset: {{ datasetName }}
+
+Tables:
+
+{% for table in tables %}
+{{ loop.index }}. {{ table.name }}
+{% for column in table.columns %}
+   - {{ column.name }} ({{ column.type }}{{ ", primary key" if column.pk else "" }})
+{% endfor %}
+
+{% endfor %}

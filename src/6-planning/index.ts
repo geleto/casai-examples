@@ -81,42 +81,40 @@ class Database {
 		return this.db;
 	}
 
-	// Extracts a concise schema summary from the database. DB must be opened first.
-	getSchemaSummary(): string {
+	// Extracts structured schema metadata from the database. DB must be opened first.
+	getSchemaMetadata() {
 		const db = this.getDb();
 		const tables = db.prepare<[], { name: string }>(
 			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
 		).all();
 
-		interface TableInfo {
+		interface ColumnInfo {
 			name: string;
 			type: string | null;
 			pk: 0 | 1;
 		}
 
-		const lines: string[] = [];
-		lines.push(`Dataset: ${this.datasetName}`);
-		lines.push('');
-		lines.push('Tables:');
-		lines.push('');
-
-		tables.forEach((table, idx) => {
+		const tableData = tables.map((table) => {
 			const tableName = table.name;
 			const escaped = tableName.replace(/"/g, '""');
 			const pragmaRows = db
-				.prepare<[], TableInfo>(`PRAGMA table_info("${escaped}")`)
+				.prepare<[], ColumnInfo>(`PRAGMA table_info("${escaped}")`)
 				.all();
 
-			lines.push(`${idx + 1}. ${tableName}`);
-			pragmaRows.forEach((col) => {
-				const type = col.type ?? 'UNKNOWN';
-				const pkSuffix = col.pk ? ', primary key' : '';
-				lines.push(`   - ${col.name} (${type}${pkSuffix})`);
-			});
-			lines.push('');
+			return {
+				name: tableName,
+				columns: pragmaRows.map((col) => ({
+					name: col.name,
+					type: col.type ?? 'UNKNOWN',
+					pk: col.pk === 1,
+				})),
+			};
 		});
 
-		return lines.join('\n').trimEnd();
+		return {
+			datasetName: this.datasetName,
+			tables: tableData,
+		};
 	}
 
 	close(): void {
@@ -180,6 +178,11 @@ const dashboardTemplate = create.Template.loadsTemplate({
 const planTemplate = create.Template.loadsTemplate({
 	loader: templateLoader,
 	template: 'dashboard-plan-template.md',
+});
+
+const schemaSummaryTemplate = create.Template.loadsTemplate({
+	loader: templateLoader,
+	template: 'schema-summary.txt',
 });
 
 // ---------------------------------------------------------------------------
@@ -273,7 +276,8 @@ async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: st
 		await database.open();
 
 		// 3. Extract schema summary
-		const schemaSummary = database.getSchemaSummary();
+		const schemaMetadata = database.getSchemaMetadata();
+		const schemaSummary = await schemaSummaryTemplate(schemaMetadata);
 		console.log(`\n=== Schema Summary ===\n${schemaSummary}`);
 
 		// 5. Run planner with structured output
@@ -322,7 +326,7 @@ async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: st
 
 		console.log('\nDashboard written to:', OUTPUT_HTML);
 
-		// 7. Serve the dashboard
+		// 7. Return the dashboard
 		console.log('Open this file in your browser to view the generated dashboard.');
 		return {
 			plan: planText,
