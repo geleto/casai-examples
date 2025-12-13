@@ -105,6 +105,19 @@ class Database {
 			match: string;
 		}
 
+		interface IndexInfo {
+			seq: number;
+			name: string;
+			unique: 0 | 1;
+			origin: string;
+			partial: 0 | 1;
+		}
+		interface IndexColumnInfo {
+			seqno: number;
+			cid: number;
+			name: string;
+		}
+
 		const tableData = tables.map((table) => {
 			const tableName = table.name;
 			const escaped = tableName.replace(/"/g, '""');
@@ -116,13 +129,61 @@ class Database {
 				.prepare<[], ForeignKeyInfo>(`PRAGMA foreign_key_list("${escaped}")`)
 				.all();
 
+			const indexes = db.prepare<[], IndexInfo>(`PRAGMA index_list("${escaped}")`).all();
+			const uniqueColumns = new Set<string>();
+
+			// Check if PK is single column
+			const pkCols = pragmaRows.filter((c) => c.pk > 0);
+			if (pkCols.length === 1) {
+				uniqueColumns.add(pkCols[0].name);
+			}
+
+			// Check unique indexes
+			for (const idx of indexes) {
+				if (idx.unique === 1) {
+					const idxCols = db
+						.prepare<[], IndexColumnInfo>(`PRAGMA index_info("${idx.name}")`)
+						.all();
+					if (idxCols.length === 1) {
+						uniqueColumns.add(idxCols[0].name);
+					}
+				}
+			}
+
+			const fkMap = new Map<string, { target: string; cardinality: '1:1' | '1:Many' }>();
+			for (const fk of foreignKeys) {
+				const targetCol = fk.to || 'PK';
+				const cardinality = uniqueColumns.has(fk.from) ? '1:1' : '1:Many';
+				fkMap.set(fk.from, { target: `${fk.table}.${targetCol}`, cardinality });
+			}
+
 			return {
 				name: tableName,
-				columns: pragmaRows.map((col) => ({
-					name: col.name,
-					type: col.type ?? 'UNKNOWN',
-					pk: col.pk === 1,
-				})),
+				columns: pragmaRows.map((col) => {
+					// Fetch samples
+					let samples: unknown[] = [];
+					try {
+						const rows = db
+							.prepare<[], { val: unknown }>(
+								`SELECT DISTINCT "${col.name}" as val FROM "${escaped}" WHERE "${col.name}" IS NOT NULL LIMIT 3`
+							)
+							.all();
+						samples = rows.map((r) => r.val);
+					} catch (_e) {
+						// Ignore errors during sample fetching
+					}
+
+					const fkInfo = fkMap.get(col.name);
+
+					return {
+						name: col.name,
+						type: col.type ?? 'UNKNOWN',
+						pk: col.pk === 1,
+						fk: fkInfo ? fkInfo.target : undefined,
+						cardinality: fkInfo ? fkInfo.cardinality : undefined,
+						samples,
+					};
+				}),
 				foreignKeys: foreignKeys.map((fk) => ({
 					from: fk.from,
 					toTable: fk.table,

@@ -5,10 +5,7 @@ Tables:
 {% for table in tables %}
 {{ loop.index }}. {{ table.name }}
 {% for column in table.columns %}
-   - {{ column.name }} ({{ column.type }}{{ ", primary key" if column.pk else "" }})
-{% endfor %}
-{% for fk in table.foreignKeys %}
-   - RELATION: {{ fk.from }} -> {{ fk.toTable }}.{{ fk.toColumn }}
+   - {{ column.name }} ({{ column.type }}{{ ", primary key" if column.pk else "" }}{{ ", link to " + column.fk + " (" + column.cardinality + ")" if column.fk else "" }}) {{ "Examples: " + column.samples|string if column.samples and column.samples|length > 0 else "" }}
 {% endfor %}
 
 {% endfor %}
