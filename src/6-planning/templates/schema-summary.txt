@@ -7,5 +7,8 @@ Tables:
 {% for column in table.columns %}
    - {{ column.name }} ({{ column.type }}{{ ", primary key" if column.pk else "" }})
 {% endfor %}
+{% for fk in table.foreignKeys %}
+   - RELATION: {{ fk.from }} -> {{ fk.toTable }}.{{ fk.toColumn }}
+{% endfor %}
 
 {% endfor %}

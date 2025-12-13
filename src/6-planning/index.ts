@@ -94,11 +94,26 @@ class Database {
 			pk: 0 | 1;
 		}
 
+		interface ForeignKeyInfo {
+			id: number;
+			seq: number;
+			table: string;
+			from: string;
+			to: string;
+			on_update: string;
+			on_delete: string;
+			match: string;
+		}
+
 		const tableData = tables.map((table) => {
 			const tableName = table.name;
 			const escaped = tableName.replace(/"/g, '""');
 			const pragmaRows = db
 				.prepare<[], ColumnInfo>(`PRAGMA table_info("${escaped}")`)
+				.all();
+
+			const foreignKeys = db
+				.prepare<[], ForeignKeyInfo>(`PRAGMA foreign_key_list("${escaped}")`)
 				.all();
 
 			return {
@@ -107,6 +122,11 @@ class Database {
 					name: col.name,
 					type: col.type ?? 'UNKNOWN',
 					pk: col.pk === 1,
+				})),
+				foreignKeys: foreignKeys.map((fk) => ({
+					from: fk.from,
+					toTable: fk.table,
+					toColumn: fk.to,
 				})),
 			};
 		});
