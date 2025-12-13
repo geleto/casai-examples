@@ -152,71 +152,68 @@ const schemaSummaryTemplate = create.Template.loadsTemplate({
 // ---------------------------------------------------------------------------
 // Script orchestration
 // ---------------------------------------------------------------------------
-function createElementProcessor(database: Database, schemaSummary: string) {
-	return create.Script({
-		context: {
-			sqlFromRequestGenerator,
-			executeSql: (sql: string) => {
-				console.log(`[DataProcessing] Executing SQL:\n${sql}\n`);
-				const db = database.getDb();
-				try {
-					return db.prepare(sql).all();
-				} catch (err: unknown) {
-					const errorMessage = err instanceof Error ? err.message : String(err);
-					console.error(`SQL Execution failed: ${errorMessage}`);
-					return [];
-				}
-			},
-			generatePreviewJson: (rows: any[]) => {
-				if (!Array.isArray(rows)) {
-					return JSON.stringify([rows], null, 2);
-				} else if (rows.length <= 5) {
-					return JSON.stringify(rows, null, 2);
-				} else {
-					const truncated = rows.slice(0, 3);
-					const json = JSON.stringify(truncated, null, 2);
-					return json.replace(
-						/\n\]$/,
-						`,\n   ... ${rows.length - 3} more items\n]`
-					);
-				}
-			},
-			saveData: (rows: any[]) => {
-				const pointId = dataPointCounter++;
-				const dataKey = `${database.datasetName}_${pointId}`;
-				collectedData[dataKey] = rows;
-				return dataKey;
-			},
-			merge: (target: any, source: any) => ({ ...target, ...source }),
-			datasetDescription: input.datasetDescription,
-			schemaSummary,
+const elementProcessor = create.Script({
+	context: {
+		sqlFromRequestGenerator,
+		executeSql: (sql: string, database: Database) => {
+			console.log(`[DataProcessing] Executing SQL:\n${sql}\n`);
+			const db = database.getDb();
+			try {
+				return db.prepare(sql).all();
+			} catch (err: unknown) {
+				const errorMessage = err instanceof Error ? err.message : String(err);
+				console.error(`SQL Execution failed: ${errorMessage}`);
+				return [];
+			}
 		},
-		schema: z.array(dashboardElementSchema.extend({
-			dataFile: z.string().optional(),
-			previewJson: z.string().optional(),
-		})),
-		script: `
-			:data
-			@data = []
-			for element in elements
-				var processed = element
-				if element.usesData
-					if element.dataRequest
-						var sqlResult = sqlFromRequestGenerator({
-							datasetDescription: datasetDescription,
-							schemaSummary: schemaSummary,
-							dataRequest: element.dataRequest
-						}).text
-						var rows = executeSql(sqlResult)
-						var preview = generatePreviewJson(rows)
-						var key = saveData(rows)
-						processed = merge(element, { previewJson: preview, dataFile: key })
-					endif
+		generatePreviewJson: (rows: any[]) => {
+			if (!Array.isArray(rows)) {
+				return JSON.stringify([rows], null, 2);
+			} else if (rows.length <= 5) {
+				return JSON.stringify(rows, null, 2);
+			} else {
+				const truncated = rows.slice(0, 3);
+				const json = JSON.stringify(truncated, null, 2);
+				return json.replace(
+					/\n\]$/,
+					`,\n   ... ${rows.length - 3} more items\n]`
+				);
+			}
+		},
+		saveData: (rows: any[], database: Database) => {
+			const pointId = dataPointCounter++;
+			const dataKey = `${database.datasetName}_${pointId}`;
+			collectedData[dataKey] = rows;
+			return dataKey;
+		},
+		merge: (target: any, source: any) => ({ ...target, ...source }),
+		datasetDescription: input.datasetDescription,
+	},
+	schema: z.array(dashboardElementSchema.extend({
+		dataFile: z.string().optional(),
+		previewJson: z.string().optional(),
+	})),
+	script: `
+		:data
+		@data = []
+		for element in elements
+			var processed = element
+			if element.usesData
+				if element.dataRequest
+					var sqlResult = sqlFromRequestGenerator({
+						datasetDescription: datasetDescription,
+						schemaSummary: schemaSummary,
+						dataRequest: element.dataRequest
+					}).text
+					var rows = executeSql(sqlResult, database)
+					var preview = generatePreviewJson(rows)
+					var key = saveData(rows, database)
+					processed = merge(element, { previewJson: preview, dataFile: key })
 				endif
-				@data.push(processed)
-			endfor`
-	});
-}
+			endif
+			@data.push(processed)
+		endfor`
+});
 
 const plannerAgent = create.ObjectGenerator.loadsTemplate({
 	model: advancedModel,
@@ -255,9 +252,7 @@ async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: st
 		console.log(`\nPlanner returned ${elements.length} elements. Processing data requests...`);
 
 		// 6. Process elements (fetch data) using Cascada Script for concurrency
-		const elementProcessor = createElementProcessor(database, schemaSummary);
-
-		const processedElements = (await elementProcessor({ elements })) as unknown as DashboardElement[];
+		const processedElements = (await elementProcessor({ elements, database, schemaSummary })) as unknown as DashboardElement[];
 
 		// 7. Generate Plan Text using Template
 		const overallIntent = `- User Request: ${input.userRequest}`;
