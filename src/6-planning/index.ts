@@ -31,23 +31,11 @@ const input = inputJson as {
 	databaseUrl: string;
 	port: number;
 };
+
 const BASE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_HTML = path.join(BASE_DIR, 'dashboard.html');
 const templateLoader = new FileSystemLoader(fileURLToPath(new URL('./templates', import.meta.url)));
 
-// ---------------------------------------------------------------------------
-// LLM-powered SQL generator. Takes a natural-language data request plus
-// schema/context and returns a single SQLite SELECT query as plain text.
-// ---------------------------------------------------------------------------
-const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
-	model: advancedModel,
-	loader: templateLoader,
-	prompt: 'sql-generator.md',
-});
-
-// ---------------------------------------------------------------------------
-// Data Fetching Logic
-// ---------------------------------------------------------------------------
 const collectedData: Record<string, unknown> = {};
 let dataPointCounter = 1;
 
@@ -67,7 +55,17 @@ type DashboardElement = z.infer<typeof dashboardElementSchema> & {
 };
 
 // ---------------------------------------------------------------------------
-// Generator LLM (Dashboard HTML Body)
+// LLM-powered SQL generator. Takes a natural-language data request plus
+// schema/context and returns a single SQLite SELECT query as plain text.
+// ---------------------------------------------------------------------------
+const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
+	model: advancedModel,
+	loader: templateLoader,
+	prompt: 'sql-generator.md',
+});
+
+// ---------------------------------------------------------------------------
+// Generator LLM prompt - generate HTML body
 // ---------------------------------------------------------------------------
 const dashboardBodyGenerator = create.TextGenerator.loadsTemplate({
 	model: basicModel,
@@ -76,7 +74,7 @@ const dashboardBodyGenerator = create.TextGenerator.loadsTemplate({
 });
 
 // ---------------------------------------------------------------------------
-// Cascada HTML wrappertemplate
+// Cascada HTML/test wrapper templates
 // ---------------------------------------------------------------------------
 const dashboardTemplate = create.Template.loadsTemplate({
 	loader: templateLoader,
@@ -94,7 +92,7 @@ const schemaSummaryTemplate = create.Template.loadsTemplate({
 });
 
 // ---------------------------------------------------------------------------
-// Script orchestration
+// For each data dashboard element - add relevant data from the database
 // ---------------------------------------------------------------------------
 const elementProcessor = create.Script({
 	context: {
@@ -167,86 +165,69 @@ const plannerAgent = create.ObjectGenerator.loadsTemplate({
 	schema: dashboardElementSchema,
 });
 
-async function dashboardOrchestrator(): Promise<{ outputFile?: string; plan?: string; }> {
-	console.log('Casai Planning Pattern Example: Dashboard Generator');
-	console.log(`User request: ${input.userRequest}\n Dataset: ${input.datasetName}`);
-
-	// 1. Initialize database
-	const database = new Database(input.datasetName, input.datasetDescription, input.databaseUrl);
-	try {
-		// 2. Ensure DB is downloaded and open it
-		await database.open();
-
-		// 3. Extract schema summary
-		const schemaMetadata = database.getSchemaMetadata();
-		const schemaSummary = await schemaSummaryTemplate(schemaMetadata);
-		console.log(`\n=== Schema Summary ===\n${schemaSummary}`);
-
-		// 5. Run planner with structured output
-		console.log('\nRunning planner LLM (Structured Output)...\n');
-
-		const planResult = await plannerAgent({
-			datasetName: input.datasetName,
-			datasetDescription: input.datasetDescription,
-			userRequest: input.userRequest,
-			schemaSummary,
-		});
-
-		const elements = planResult.object;
-		console.log(`\nPlanner returned ${elements.length} elements. Processing data requests...`);
-
-		// 6. Process elements (fetch data) using Cascada Script for concurrency
-		const processedElements = (await elementProcessor({ elements, database, schemaSummary })) as unknown as DashboardElement[];
-
-		// 7. Generate Plan Text using Template
-		const overallIntent = `- User Request: ${input.userRequest}`;
-
-		const planText = await planTemplate({
-			overallIntent,
-			elements: processedElements
-		});
-
-		console.log(`\n=== DASHBOARD PLAN ===\n${planText}`);
-
-		// 6. Run generator
-		console.log('\nRunning generator LLM...\n');
-		const bodyResult = await dashboardBodyGenerator({
-			datasetName: input.datasetName,
-			datasetDescription: input.datasetDescription,
-			userRequest: input.userRequest,
-			schemaSummary,
-			plan: planText,
-		});
-		const bodyHtml = bodyResult.text;
-
-		// 7. Wrap and save final HTML
-		const dataScript = `<script>window.dashboardData = ${JSON.stringify(collectedData)};</script>`;
-		const finalHtml = await dashboardTemplate({ bodyHtml, dataScript });
-		writeFileSync(OUTPUT_HTML, finalHtml, 'utf-8');
-
-		console.log('\nDashboard written to:', OUTPUT_HTML);
-
-		// 7. Return the dashboard
-		console.log('Open this file in your browser to view the generated dashboard.');
-		return {
-			plan: planText,
-			outputFile: 'dashboard.html',
-		};
-	} finally {
-		database.close();
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Execution entrypoint
 // ---------------------------------------------------------------------------
 console.log('--- Dashboard Planning Example ---');
+console.log('Casai Planning Pattern Example: Dashboard Generator');
+console.log(`User request: ${input.userRequest}\n Dataset: ${input.datasetName}`);
+
+// 1. Initialize database
+const database = new Database(input.datasetName, input.datasetDescription, input.databaseUrl);
 try {
-	const result = await dashboardOrchestrator();
+	// 2. Ensure DB is downloaded and open it
+	await database.open();
+
+	// 3. Extract schema summary
+	const schemaMetadata = database.getSchemaMetadata();
+	const schemaSummary = await schemaSummaryTemplate(schemaMetadata);
+	console.log(`\n=== Schema Summary ===\n${schemaSummary}`);
+
+	// 5. Run planner with structured output
+	console.log('\nRunning planner LLM (Structured Output)...\n');
+	const planResult = await plannerAgent({
+		datasetName: input.datasetName,
+		datasetDescription: input.datasetDescription,
+		userRequest: input.userRequest,
+		schemaSummary,
+	});
+	const elements = planResult.object;
+	console.log(`\nPlanner returned ${elements.length} elements. Processing data requests...`);
+
+	// 6. Process elements (fetch data) using Cascada Script for concurrency
+	const processedElements = (await elementProcessor({ elements, database, schemaSummary })) as unknown as DashboardElement[];
+
+	// 7. Generate Plan Text using Template
+	const overallIntent = `- User Request: ${input.userRequest}`;
+	const planText = await planTemplate({
+		overallIntent,
+		elements: processedElements
+	});
+	console.log(`\n=== DASHBOARD PLAN ===\n${planText}`);
+
+	// 6. Run generator
+	console.log('\nRunning generator LLM...\n');
+	const bodyResult = await dashboardBodyGenerator({
+		datasetName: input.datasetName,
+		datasetDescription: input.datasetDescription,
+		userRequest: input.userRequest,
+		schemaSummary,
+		plan: planText,
+	});
+	const bodyHtml = bodyResult.text;
+
+	// 7. Wrap and save final HTML
+	const dataScript = `<script>window.dashboardData = ${JSON.stringify(collectedData)};</script>`;
+	const finalHtml = await dashboardTemplate({ bodyHtml, dataScript });
+	writeFileSync(OUTPUT_HTML, finalHtml, 'utf-8');
+	console.log('\nDashboard written to:', OUTPUT_HTML);
+	console.log('Open this file in your browser to view the generated dashboard.');
+
 	console.log('\n--- Execution Complete ---');
-	if (result.outputFile) {
-		console.log(`Generated dashboard: ${OUTPUT_HTML}`);
-	}
+	console.log(`Generated dashboard: ${OUTPUT_HTML}`);
+
 } catch (error) {
 	console.error('Orchestration failed:', error);
+} finally {
+	database.close();
 }
