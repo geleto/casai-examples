@@ -128,7 +128,6 @@ const elementProcessor = create.Script({
 			collectedData[dataKey] = rows;
 			return dataKey;
 		},
-		merge: (target: any, source: any) => ({ ...target, ...source }),
 		datasetDescription: input.datasetDescription,
 	},
 	schema: z.array(dashboardElementSchema.extend({
@@ -139,7 +138,7 @@ const elementProcessor = create.Script({
 		:data
 		@data = []
 		for element in elements
-			var processed = element
+			@data.push(element)
 			if element.usesData
 				if element.dataRequest
 					var sqlResult = sqlFromRequestGenerator({
@@ -148,12 +147,10 @@ const elementProcessor = create.Script({
 						dataRequest: element.dataRequest
 					}).text
 					var rows = executeSql(sqlResult, database)
-					var preview = generatePreviewJson(rows)
-					var key = saveData(rows, database)
-					processed = merge(element, { previewJson: preview, dataFile: key })
+					@data[].previewJson = generatePreviewJson(rows)
+					@data[].dataFile = saveData(rows, database)
 				endif
 			endif
-			@data.push(processed)
 		endfor`
 });
 
@@ -223,11 +220,11 @@ try {
 	console.log('\nDashboard written to:', OUTPUT_HTML);
 	console.log('Open this file in your browser to view the generated dashboard.');
 
-	console.log('\n--- Execution Complete ---');
+	console.log('\n--- Dashboard generation complete ---');
 	console.log(`Generated dashboard: ${OUTPUT_HTML}`);
 
 } catch (error) {
-	console.error('Orchestration failed:', error);
+	console.error('Dashboard generation fasiled:', error);
 } finally {
 	database.close();
 }
