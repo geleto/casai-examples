@@ -15,15 +15,13 @@
  * 6. Wrap body in a fixed HTML wrapper and save dashboard.html.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { basicModel, advancedModel } from '../setup';
 import { create, FileSystemLoader } from 'casai';
-import Sqlite from 'better-sqlite3';
 import { fileURLToPath } from 'url';
-import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
-import { getSchemaMetadata } from './getSchemaMetadata';
+import { Database } from './Database';
 
 import inputJson from './input.json';
 const input = inputJson as {
@@ -36,60 +34,6 @@ const input = inputJson as {
 const BASE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_HTML = path.join(BASE_DIR, 'dashboard.html');
 const templateLoader = new FileSystemLoader(fileURLToPath(new URL('./templates', import.meta.url)));
-
-// ---------------------------------------------------------------------------
-// Database class
-// ---------------------------------------------------------------------------
-class Database {
-	private db!: Sqlite.Database;
-
-	constructor(
-		readonly datasetName: string,
-		readonly datasetDescription: string,
-		readonly databaseUrl: string
-	) { }
-
-	// Loads the database if necessary and opens it
-	async open() {
-		const dataDir = path.join(BASE_DIR, 'database');
-		if (!existsSync(dataDir)) {
-			mkdirSync(dataDir, { recursive: true });
-		}
-		const dbPath = path.join(dataDir, `${this.datasetName}.db`);
-
-		// Download database if it doesn't exist
-		if (!existsSync(dbPath)) {
-			console.log(
-				`Downloading SQLite DB for dataset "${this.datasetName}" from ${this.databaseUrl}...`
-			);
-			const response = await fetch(this.databaseUrl);
-			if (!response.ok) {
-				throw new Error(
-					`Failed to download DB from ${this.databaseUrl}. HTTP ${response.status} ${response.statusText}`
-				);
-			}
-			const arrayBuffer = await response.arrayBuffer();
-			const buffer = Buffer.from(arrayBuffer);
-			await fs.writeFile(dbPath, buffer);
-			console.log(`Saved DB to ${dbPath}`);
-		}
-
-		// Open the database (whether just downloaded or already existed)
-		this.db = new Sqlite(dbPath, { readonly: true });
-	}
-
-	getDb(): Sqlite.Database {
-		return this.db;
-	}
-	// Extracts structured schema metadata from the database. DB must be opened first.
-	getSchemaMetadata() {
-		return getSchemaMetadata(this.getDb(), this.datasetName);
-	}
-
-	close(): void {
-		this.db.close();
-	}
-}
 
 // ---------------------------------------------------------------------------
 // LLM-powered SQL generator. Takes a natural-language data request plus
