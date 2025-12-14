@@ -55,6 +55,17 @@ type DashboardElement = z.infer<typeof dashboardElementSchema> & {
 };
 
 // ---------------------------------------------------------------------------
+// Planner LLM - Generate dashboard plan
+// ---------------------------------------------------------------------------
+const plannerAgent = create.ObjectGenerator.loadsTemplate({
+	model: advancedModel,
+	loader: templateLoader,
+	prompt: 'planner-agent.md',
+	output: 'array',
+	schema: dashboardElementSchema,
+});
+
+// ---------------------------------------------------------------------------
 // LLM-powered SQL generator. Takes a natural-language data request plus
 // schema/context and returns a single SQLite SELECT query as plain text.
 // ---------------------------------------------------------------------------
@@ -98,15 +109,7 @@ const elementProcessor = create.Script({
 	context: {
 		sqlFromRequestGenerator,
 		executeSql: (sql: string, database: Database) => {
-			console.log(`[DataProcessing] Executing SQL:\n${sql}\n`);
-			const db = database.getDb();
-			try {
-				return db.prepare(sql).all();
-			} catch (err: unknown) {
-				const errorMessage = err instanceof Error ? err.message : String(err);
-				console.error(`SQL Execution failed: ${errorMessage}`);
-				return [];
-			}
+			return database.executeSql(sql);
 		},
 		generatePreviewJson: (rows: any[]) => {
 			if (!Array.isArray(rows)) {
@@ -139,27 +142,17 @@ const elementProcessor = create.Script({
 		@data = []
 		for element in elements
 			@data.push(element)
-			if element.usesData
-				if element.dataRequest
-					var sqlResult = sqlFromRequestGenerator({
-						datasetDescription: datasetDescription,
-						schemaSummary: schemaSummary,
-						dataRequest: element.dataRequest
-					}).text
-					var rows = executeSql(sqlResult, database)
-					@data[].previewJson = generatePreviewJson(rows)
-					@data[].dataFile = saveData(rows, database)
-				endif
+			if element.usesData and element.dataRequest
+				var sqlResult = sqlFromRequestGenerator({
+					datasetDescription: datasetDescription,
+					schemaSummary: schemaSummary,
+					dataRequest: element.dataRequest
+				}).text
+				var rows = executeSql(sqlResult, database)
+				@data[].previewJson = generatePreviewJson(rows)
+				@data[].dataFile = saveData(rows, database)
 			endif
 		endfor`
-});
-
-const plannerAgent = create.ObjectGenerator.loadsTemplate({
-	model: advancedModel,
-	loader: templateLoader,
-	prompt: 'planner-agent.md',
-	output: 'array',
-	schema: dashboardElementSchema,
 });
 
 // ---------------------------------------------------------------------------

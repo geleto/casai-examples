@@ -156,6 +156,18 @@ export class Database {
 		};
 	}
 
+	executeSql(sql: string): [] {
+		console.log(`[Database] Executing SQL:\n${sql}\n`);
+		const db = this.getDb();
+		try {
+			return db.prepare(sql).all() as [];
+		} catch (err: unknown) {
+			const errorMessage = err instanceof Error ? err.message : String(err);
+			console.error(`SQL Execution failed: ${errorMessage}`);
+			return [];
+		}
+	}
+
 	close(): void {
 		this.db.close();
 	}
