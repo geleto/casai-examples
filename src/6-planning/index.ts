@@ -1,18 +1,22 @@
 /**
  * PLANNING PATTERN EXAMPLE: DASHBOARD GENERATOR
  *
- * High-level flow:
- * 1. Read input.json (dataset + user request).
- * 2. Ensure SQLite DB is downloaded to ./database/<datasetName>.db.
- * 3. Extract a concise schema summary.
- * 4. Run Planner LLM:
- *    - Sees dataset + schema + userRequest.
- *    - Can call dataTool to fetch data samples.
- *    - Returns a textual DASHBOARD PLAN (required format).
- * 5. Run Generator LLM:
- *    - Takes the plan, schema, and request.
- *    - Outputs a single <body>...</body> element that uses Bootstrap 5 + Chart.js.
- * 6. Wrap body in a fixed HTML wrapper and save dashboard.html.
+ * Demonstrates an AI agent that creates a data dashboard by first planning the layout and data requirements, then executing that plan.
+ *
+ * HOW IT WORKS:
+ * 1. Generate a schema summary by inspecting the SQLite database
+ * 2. Analyze the user request and schema to plan the dashboard
+ * 3. Planner Agent generates a structured list of dashboard elements (charts, KPIs)
+ * 4. For each element, generate and execute SQL to fetch the necessary data
+ * 5. Generator Agent creates the HTML visualization using the plan and data
+ * 6. Assemble the final dashboard with Bootstrap and Chart.js
+ *
+ * KEY CONCEPTS:
+ * - Planning Pattern: Break complex tasks into structured steps
+ * - Tool Use: Dynamic SQL generation and database querying
+ * - Structured Output: Using Zod schemas to enforce plan format
+ * - Concurrency: SQL generation and data fetching for elements run in parallel
+ * - Multi-step Chaining: Planner, data fetcher, and code generator
  */
 
 import { writeFileSync } from 'fs';
