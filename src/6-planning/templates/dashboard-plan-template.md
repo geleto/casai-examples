@@ -19,7 +19,7 @@ dataRequest: |
 
 dataFile: {{ element.dataFile }}
 
-previewJson:
+Preview JSON:
 ```json
 {{ element.previewJson }}
 ```

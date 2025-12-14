@@ -6,9 +6,9 @@ Your task:
 - Use Chart.js for charts.
 
 You are given:
-- datasetName: {{ datasetName }}
-- datasetDescription: {{ datasetDescription }}
-- userRequest: {{ userRequest }}
+- Dataset name: {{ datasetName }}
+- Dataset description: {{ datasetDescription }}
+- User request: {{ userRequest }}
 
 Schema summary (for context only):
 {{ schemaSummary }}
@@ -32,14 +32,15 @@ Requirements for the generated HTML:
 - Use the title and description from the plan for each card.
 
 3) Data fetching & Chart.js
-- For each element with usesData: yes:
+- For each element with usesData: true:
   - Use a <script> at the end of the body to:
     - Wrap ALL code in "document.addEventListener('DOMContentLoaded', () => { ... });" to ensure the data at the bottom of the file is loaded before execution.
     - Access the data via window.dashboardData[dataKey] (where dataKey is the 'dataFile' value from the plan).
     - Do NOT define window.dashboardData or include mock data. It is injected automatically by the system wrapper.
     - Process the resulting array of objects to build labels and datasets.
     - Use only field names that actually appear in the previewJson for that element.
-    - Create a new Chart: new Chart(ctx, { type, data, options }).
+    - Create a new Chart: new Chart(ctx, { type, data, options: { responsive: true, maintainAspectRatio: false, ...options } }).
+    - CRITICAL: You MUST set `maintainAspectRatio: false` in the options to ensure the chart fills the container height.
   - If the element is a KPI (type=kpi):
     - Extract the single value from the first row of the data array (e.g. `const value = data[0].TotalRevenue`).
     - Find the element by ID or class and update its text content with the value.
