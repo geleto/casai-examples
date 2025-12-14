@@ -224,9 +224,16 @@ Demonstrates how to create custom tools that LLMs can use to solve problems.
 - **API Integration**: Connects to external weather and geocoding APIs.
 - **Tool Composition**: Shows an agent combining multiple tools to answer complex queries.
 
+### Example 6: Planning ([src/6-planning/index.ts](src/6-planning/index.ts))
+Demonstrates an AI agent that builds a complete data dashboard for any SQLite databse from a natural language request. The agent downloads the database file, analyzes its structure to create a schema summary, plans the dashboard layout, and then concurrently generates and executes SQL queries to fetch the necessary data before rendering the final HTML.
+- **Planning Pattern**: Break complex tasks into structured steps.
+- **Dynamic SQL Generation**: Creates SQL queries based on the dashboard layout.
+- **Structured Output**: Using Zod schemas to enforce plan format.
+- **Concurrency**: SQL generation and data fetching for elements run in parallel.
+- **Multi-step Chaining**: Planner, data fetcher, and code generator.
+
 <!---
-### Example 6: Planning
-TODO
+
 ### Example 7: Multi-Agent
 TODO
 ### Example 8: Memory Management
