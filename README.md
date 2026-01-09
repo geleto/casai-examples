@@ -196,12 +196,16 @@ Demonstrates breaking down a complex task into a sequence of simpler steps.
 - **State Management**: Passes outputs from one step as inputs to the next.
 - **Separation of Concerns**: Each step focuses on a specific sub-task for better quality.
 
+**Patterns & Concepts:** Task decomposition, Sequential composition, Context propagation
+
 ### Example 2: Routing ([src/2-routing/index.ts](src/2-routing/index.ts))
 Acts as a customer support agent that classifies inquiries (technical, billing, etc.) and routes them to specialized handlers with appropriate tones.
 Demonstrates routing different types of inputs to specialized handlers.
 - **Classification**: Uses an LLM to categorize inquiries (Technical, Billing, General, Urgent).
 - **Specialized Handlers**: Routes to specific prompts/configs optimized for each category.
 - **Conditional Logic**: Uses `switch` or `if/else` logic to direct control flow.
+
+**Patterns & Concepts:** Intent classification, Strategy pattern, Specialized prompting
 
 ### Example 3: Parallelization ([src/3-parallelization/index.ts](src/3-parallelization/index.ts))
 Performs market analysis by finding and analyzing stocks in multiple markets simultaneously, then ranking them based on calculated scores.
@@ -210,12 +214,16 @@ Demonstrates automatic parallel execution through simple for loops.
 - **Hybrid Logic**: Combines LLM generation (finding/analyzing stocks) with JS logic (ranking/filtering).
 - **Structured Data**: Collects and processes structured data from multiple parallel streams.
 
+**Patterns & Concepts:** Map-reduce, Scatter-gather, Fan-out/fan-in
+
 ### Example 4: Reflection ([src/4-reflection/index.ts](src/4-reflection/index.ts))
 Iteratively improves a blog post by generating a draft, critiquing it against a quality threshold, and revising it based on specific feedback.
 Demonstrates an AI agent that improves its own output through self-critique.
 - **Self-Correction Loop**: Generates a draft, critiques it, and revises based on feedback.
 - **Quality Control**: Continues revising until a quality threshold is met or max revisions reached.
 - **Structured Feedback**: Uses specific scoring and suggestions to guide improvements.
+
+**Patterns & Concepts:** Self-critique, Iterative refinement, Quality assessment
 
 ### Example 5: Tool Use ([src/5-tool/index.ts](src/5-tool/index.ts))
 Answers weather queries by orchestrating multiple tools: geocoding locations, interpreting relative dates (e.g., "next Friday"), and fetching forecast data.
@@ -224,6 +232,8 @@ Demonstrates how to create custom tools that LLMs can use to solve problems.
 - **API Integration**: Connects to external weather and geocoding APIs.
 - **Tool Composition**: Shows an agent combining multiple tools to answer complex queries.
 
+**Patterns & Concepts:** Function calling, Temporal reasoning, Composite tools
+
 ### Example 6: Planning ([src/6-planning/index.ts](src/6-planning/index.ts))
 Demonstrates an AI agent that builds a complete data dashboard for any SQLite databse from a natural language request. The agent downloads the database file, analyzes its structure to create a schema summary, plans the dashboard layout, and then concurrently generates and executes SQL queries to fetch the necessary data before rendering the final HTML.
 - **Planning Pattern**: Break complex tasks into structured steps.
@@ -231,6 +241,8 @@ Demonstrates an AI agent that builds a complete data dashboard for any SQLite da
 - **Structured Output**: Using Zod schemas to enforce plan format.
 - **Concurrency**: SQL generation and data fetching for elements run in parallel.
 - **Multi-step Chaining**: Planner, data fetcher, and code generator.
+
+**Patterns & Concepts:** Hierarchical planning, Schema analysis, Code generation (SQL/HTML)
 
 <!---
 
@@ -256,6 +268,8 @@ Demonstrates a Retrieval-Augmented Generation system with agentic filtering.
 - **Semantic Chunking**: Splits text by meaning rather than fixed size.
 - **Vector Search**: Retrieves broad candidates using cosine similarity.
 - **Agentic Filtering**: A second-pass LLM verifies relevance of each chunk to improve the context for the final answer.
+
+**Patterns & Concepts:** RAG, Two-stage filtering, Semantic chunking
 
 <!---
 ### Example 15: Inter-Agent Communication (A2A)
