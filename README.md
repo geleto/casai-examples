@@ -156,6 +156,7 @@ Demonstrates how to create custom tools that LLMs can use to solve problems.
 - **LLM-Powered Tools**: Creates a tool that uses an LLM to interpret natural language (time references).
 - **API Integration**: Connects to external weather and geocoding APIs.
 - **Tool Composition**: Shows an agent combining multiple tools to answer complex queries.
+- **Multi-step Reasoning**: Uses context from previous steps (location) to inform subsequent steps (time interpretation, weather fetch).
 
 ### Example 6: Planning ([src/6-planning/index.ts](src/6-planning/index.ts))
 Demonstrates an AI agent that builds a complete data dashboard for any SQLite databse from a natural language request. The agent downloads the database file, analyzes its structure to create a schema summary, plans the dashboard layout, and then concurrently generates and executes SQL queries to fetch the necessary data before rendering the final HTML.
