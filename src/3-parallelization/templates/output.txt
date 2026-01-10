@@ -2,16 +2,11 @@
 STOCK ANALYSIS RESULTS
 ================================================================================
 
-Markets Analyzed: {{ markets | join(", ") }}
-Stocks Processed: {{ total }} total, {{ analyzed }} analyzed, {{ skipped }} skipped
-
-TOP {{ topStocks.length }} STOCKS:
---------------------------------------------------------------------------------
-
 {% for stock in topStocks %}
+--------------------------------------------------------------------------------
 {{ stock.rank }}. [{{ stock.ticker }}] {{ stock.companyName }} - {{ stock.market }}
    Score: {{ stock.finalScore | round(1) }}/10
-   
+
    Analysis:
 {{ stock.analysis | indent(3) }}
 
@@ -25,3 +20,13 @@ TOP {{ topStocks.length }} STOCKS:
 
 {% endfor %}
 ================================================================================
+
+Summary:
+Markets Analyzed: {{ markets | join(", ") }}
+Stocks Processed: {{ total }} total, {{ analyzed }} analyzed, {{ skipped }} skipped
+
+TOP {{ topStocks.length }} STOCKS:
+{% for stock in topStocks %}
+{{ stock.rank }}. [{{ stock.ticker }}] {{ stock.companyName }} - {{ stock.market }}, {{ stock.finalScore | round(1) }}/10
+{%- endfor %}
+
