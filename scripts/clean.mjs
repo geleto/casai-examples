@@ -7,6 +7,8 @@ const __dirname = path.dirname(__filename);
 
 const pathsToDelete = [
 	path.join(__dirname, '../src/14-rag/vectra_index'),
+	path.join(__dirname, '../src/6-planning/database'),
+	path.join(__dirname, '../src/6-planning/dashboard.html'),
 ];
 
 async function clean() {
