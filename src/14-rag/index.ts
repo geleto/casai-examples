@@ -190,6 +190,8 @@ const ragAgent = create.Script({
 		@data.answer = answer`
 });
 
+console.log('RAG (RETRIEVAL-AUGMENTED GENERATION) PATTERN EXAMPLE\nDemonstrates building an intelligent knowledge retrieval system.\n');
+
 await runIndexing();
 console.log('\n--- RAG Agent Starts ---');
 const query = await fs.readFile(INPUT_FILE, 'utf-8');

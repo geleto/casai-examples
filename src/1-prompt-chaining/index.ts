@@ -20,6 +20,8 @@ import fs from 'fs/promises';
 import { basicModel } from '../setup';
 import { create } from 'casai';
 
+console.log('PROMPT CHAINING EXAMPLE\nDemonstrates breaking down a complex task into a sequence of simpler steps.\n');
+
 const inputFile = new URL('./input.txt', import.meta.url);
 
 // 1. Define base configuration

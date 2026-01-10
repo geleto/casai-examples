@@ -162,8 +162,7 @@ const elementProcessor = create.Script({
 // ---------------------------------------------------------------------------
 // Execution entrypoint
 // ---------------------------------------------------------------------------
-console.log('--- Dashboard Planning Example ---');
-console.log('Casai Planning Pattern Example: Dashboard Generator');
+console.log('PLANNING PATTERN EXAMPLE\nDemonstrates an AI agent that creates a data dashboard by first planning the layout and data requirements, then executing that plan.\n');
 console.log(`User request: ${input.userRequest}\n Dataset: ${input.datasetName}`);
 
 // 1. Initialize database

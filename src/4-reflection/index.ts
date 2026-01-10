@@ -23,6 +23,8 @@ import { basicModel, advancedModel } from '../setup';
 import { create } from 'casai';
 import { z } from 'zod';
 
+console.log('REFLECTION PATTERN EXAMPLE\nDemonstrates an AI agent that improves its own output through self-critique.\n');
+
 const inputFile = new URL('./input.txt', import.meta.url);
 
 // 1. Define a reusable base configuration using basicModel
@@ -36,7 +38,7 @@ const baseLLMConfig = create.Config({
 
 // 2.1. A renderer to write drafts (inherits the model from baseConfig)
 const draftGenerator = create.TextGenerator.withTemplate({
-	prompt: 'Write a short, engaging blog post about {{ topic }}.',
+	prompt: 'Write a short, engaging story or blog post about {{ topic }}.',
 }, baseLLMConfig);
 
 // 2.2. A renderer to critique drafts using a structured schema.
@@ -69,7 +71,7 @@ const contentAgent = create.Script({
 		maxRevisions: 3,
 	},
 	script: // This script orchestrates the agent's "thought process".
-    `:data
+		`:data
 
     // --- Generate and critique the initial draft ---
     var currentDraft = draftGenerator({ topic: readTopic() }).text

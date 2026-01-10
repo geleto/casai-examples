@@ -16,6 +16,8 @@
  * - Use output: 'array' for simple array outputs
  * - Do math and sorting in JS, not in LLM
  * - Templates for all text formatting (prompts and output)
+ *
+ * TODO: Skip when there are duplicates between categories
  */
 
 import { basicModel, advancedModel } from '../setup';
@@ -27,13 +29,11 @@ import * as types from './types';
 
 // Define model configurations
 const quickConfig = create.Config({
-	model: basicModel,
-	temperature: 0.4,
+	model: basicModel
 });
 
 const analyticalConfig = create.Config({
-	model: advancedModel,
-	temperature: 0.7,
+	model: advancedModel
 });
 
 // Shared loader for all templates (instead of path)
@@ -235,7 +235,7 @@ const stockAnalysisAgent = create.Script({
 });
 
 // Run the agent
-console.log('Starting stock analysis agent...\n');
+console.log('PARALLELIZATION PATTERN EXAMPLE\nDemonstrates automatic parallel execution through simple for loops.\n');
 console.log('Disclaimer: This analysis is for educational purposes only and does not constitute financial advice.\n');
 
 const result = await stockAnalysisAgent();

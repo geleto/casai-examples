@@ -21,17 +21,17 @@ import fs from 'fs/promises';
 import { basicModel, advancedModel } from '../setup';
 import { create } from 'casai';
 
+console.log('ROUTING PATTERN EXAMPLE\nDemonstrates routing different types of inputs to specialized handlers.\n');
+
 const inputFile = new URL('./input.txt', import.meta.url);
 
 // 1. Define configurations for different handler types
 const quickResponseConfig = create.Config({
-	model: basicModel,
-	temperature: 0.4, // Lower temperature for consistent, factual responses
+	model: basicModel
 });
 
 const detailedResponseConfig = create.Config({
-	model: advancedModel,
-	temperature: 0.7, // Higher temperature for more creative, empathetic responses
+	model: advancedModel
 });
 
 // 2. Define the classifier using enum output for efficient routing
@@ -45,7 +45,6 @@ const inquiryClassifier = create.ObjectGenerator.withTemplate({
 
 // Technical support handler - detailed and precise
 const technicalHandler = create.TextGenerator.withTemplate({
-	debug: true,
 	prompt: 'Provide a detailed technical support response to this inquiry:\n\n{{ inquiry }}\n\nInclude:\n- Clear diagnosis of the issue\n- Step-by-step solution\n- Relevant documentation links\n- Follow-up recommendations',
 }, detailedResponseConfig);
 
@@ -79,7 +78,6 @@ const supportAgent = create.Script({
 			return inquiry.trim()
 		}
 	},
-	debug: true,
 	script: `
 		:data
 

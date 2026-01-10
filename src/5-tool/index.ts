@@ -1,8 +1,21 @@
 /**
- * Tool Use Example
+ * TOOL USE EXAMPLE
  *
  * Demonstrates how to create tools that an LLM can use to answer queries.
  * Shows both API-based tools and LLM-powered tools working together.
+ *
+ * HOW IT WORKS:
+ * 1. The agent receives a natural language query about weather
+ * 2. A geocoding tool converts location names to coordinates and timezone
+ * 3. An LLM-powered tool interprets natural language time references ("next Friday")
+ * 4. A weather API tool fetches current data or forecasts based on location and time
+ * 5. The agent synthesizes all data into a natural language response
+ *
+ * KEY CONCEPTS:
+ * - Creating functional tools from existing APIs
+ * - Building "LLM-as-a-tool" for complex interpretation tasks
+ * - Orchestrating multiple tools in a single chain
+ * - Multi-step reasoning with context passing (location -> time -> weather)
  */
 
 import { create } from 'casai';
@@ -200,7 +213,7 @@ Weather data format:
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const query = readFileSync(join(__dirname, 'input.txt'), 'utf-8').trim();
 
-console.log('Weather Intelligence Tools Example');
+console.log('TOOL USE EXAMPLE\nDemonstrates how to create tools that an LLM can use to answer queries.\n');
 console.log(`Query: ${query}\n`);
 
 const result = await weatherAssistant(query);
