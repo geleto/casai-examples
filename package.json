@@ -13,11 +13,11 @@
   "author": "Angel Popov",
   "license": "Apache-2.0",
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.16",
-    "@ai-sdk/openai": "^2.0.30",
-    "ai": "^5.0.44",
+    "@ai-sdk/anthropic": "^3.0.28",
+    "@ai-sdk/openai": "^3.0.21",
+    "ai": "^6.0.58",
     "better-sqlite3": "^12.4.6",
-    "casai": "^0.3.5",
+    "casai": "^0.4.1",
     "semachunk": "^0.3.2",
     "tsx": "^4.20.3",
     "vectra": "^0.11.1"
