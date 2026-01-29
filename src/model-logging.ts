@@ -1,16 +1,17 @@
 import { wrapLanguageModel } from 'ai';
 import {
-	LanguageModelV2,
-	LanguageModelV2CallOptions,
-	LanguageModelV2StreamPart,
-	LanguageModelV2Usage
+	LanguageModelV3,
+	LanguageModelV3CallOptions,
+	LanguageModelV3FinishReason,
+	LanguageModelV3StreamPart,
+	LanguageModelV3Usage
 } from '@ai-sdk/provider';
 
 /**
  * Model Logging Utility (Optional)
  *
  * This module provides optional logging functionality for language models. It wraps
- * any LanguageModelV2 instance using the AI SDK's `wrapLanguageModel` middleware
+ * any LanguageModelV3 instance using the AI SDK's `wrapLanguageModel` middleware
  * to intercept and log model calls without modifying the underlying model behavior.
  *
  * Key Features:
@@ -28,7 +29,7 @@ const PREVIEW_LIMIT = 40;
 const TOOL_RESULT_PREVIEW_LIMIT = 100;
 
 // Helper function to extract and format tool arguments
-function getToolArguments(part: { type: string; [key: string]: unknown }): string {
+function getToolArguments(part: { type: string;[key: string]: unknown }): string {
 	try {
 		// Check for both 'args' and 'input' properties
 		const args = 'args' in part
@@ -65,20 +66,31 @@ function logCompletion(
 	modelName: string,
 	callId: number,
 	startTime: number,
-	usage: LanguageModelV2Usage | undefined,
+	usage: LanguageModelV3Usage | undefined,
 	mode: 'generating' | 'streaming',
 	activeCalls: number,
 	text: string | undefined,
-	finishReason?: string
+	finishReason?: LanguageModelV3FinishReason | string
 ) {
 	const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
 	// Show input/output tokens for better visibility
-	const inputTokens = usage?.inputTokens ?? 0;
-	const outputTokens = usage?.outputTokens ?? 0;
+	// Handle both number and object formats (some providers return structured usage)
+	const getCount = (val: unknown): number => {
+		if (typeof val === 'number') return val;
+		if (typeof val === 'object' && val !== null && 'total' in val) {
+			const total = (val as { total?: number | undefined }).total;
+			return typeof total === 'number' ? total : 0;
+		}
+		return 0;
+	};
+
+	const inputTokens = getCount(usage?.inputTokens);
+	const outputTokens = getCount(usage?.outputTokens);
+	const totalTokens = inputTokens + outputTokens;
 
 	const tokenInfo = inputTokens > 0
-		? `${inputTokens}→${outputTokens} tokens`
+		? `${totalTokens} tokens (${inputTokens} in + ${outputTokens} out)`
 		: `${outputTokens} tokens`;
 
 	let resultSuffix = '';
@@ -89,7 +101,15 @@ function logCompletion(
 		resultSuffix = ` | result: "${truncated.replace(/"/g, '\\"')}"`;
 	}
 
-	const finishInfo = finishReason ? ` | reason: ${finishReason}` : '';
+	let finishInfo = '';
+	if (finishReason) {
+		if (typeof finishReason === 'string') {
+			finishInfo = ` | reason: ${finishReason}`;
+		} else {
+			const rawSuffix = finishReason.raw ? ` (${finishReason.raw})` : '';
+			finishInfo = ` | reason: ${finishReason.unified}${rawSuffix}`;
+		}
+	}
 
 	process.stdout.write(
 		`[${modelName} #${callId}] ✅ Complete ${mode}: ${tokenInfo} in ${duration}s | active: ${activeCalls}${finishInfo}${resultSuffix}\n`
@@ -101,7 +121,7 @@ interface PromptPreview {
 	truncated: boolean;
 }
 
-function getPromptPreview(params: LanguageModelV2CallOptions | undefined): PromptPreview | undefined {
+function getPromptPreview(params: LanguageModelV3CallOptions | undefined): PromptPreview | undefined {
 	if (!params) {
 		return undefined;
 	}
@@ -161,6 +181,8 @@ function getPromptPreview(params: LanguageModelV2CallOptions | undefined): Promp
 
 			if (part.type === 'text') {
 				appendText(part.text);
+			} else if (part.type === 'reasoning') {
+				appendText(part.text);
 			}
 
 			if (preview.length >= PREVIEW_LIMIT) {
@@ -193,7 +215,7 @@ function formatPromptSuffix(preview: PromptPreview | undefined) {
 
 // Progress indicator wrapper
 export function withProgressIndicator(
-	model: LanguageModelV2,
+	model: LanguageModelV3,
 	modelName: string,
 	showProgress = true
 ) {
@@ -207,6 +229,7 @@ export function withProgressIndicator(
 	return wrapLanguageModel({
 		model,
 		middleware: {
+			specificationVersion: 'v3',
 			wrapGenerate: async ({ doGenerate, params }) => {
 				const callId = ++callCounter;
 				const startTime = Date.now();
@@ -297,10 +320,10 @@ export function withProgressIndicator(
 				const toolCallIds = new Map<string, string>();
 				const loggedToolCalls = new Set<string>();
 				let streamFinished = false;
-				let finishReason: string | undefined;
+				let finishReason: LanguageModelV3FinishReason | string | undefined;
 
-				const transformStream = new TransformStream<LanguageModelV2StreamPart, LanguageModelV2StreamPart>({
-					transform(chunk: LanguageModelV2StreamPart, controller) {
+				const transformStream = new TransformStream<LanguageModelV3StreamPart, LanguageModelV3StreamPart>({
+					transform(chunk: LanguageModelV3StreamPart, controller) {
 						try {
 							if (chunk.type === 'text-delta') {
 								fullText += chunk.delta;
