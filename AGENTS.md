@@ -59,21 +59,10 @@ Important concepts:
 ## 3. Additional API Reference
 
 For the complete Casai API documentation, see the **Casai README**:
-[./node_modules/casai/README.md](./node_modules/casai/README.md)
+[node_modules/casai/README.md](node_modules/casai/README.md)
 
-For Cascada docs, prefer the installed or linked agent-friendly reference when present:
-[./node_modules/cascada-engine/docs/cascada/cascada-agent.md](./node_modules/cascada-engine/docs/cascada/cascada-agent.md)
-[../cascada/docs/cascada/cascada-agent.md](../cascada/docs/cascada/cascada-agent.md)
-
-If the compressed Cascada reference is missing, or if syntax or semantics are unclear or contradictory, check the source docs:
-[./node_modules/cascada-engine/docs/cascada/script.md](./node_modules/cascada-engine/docs/cascada/script.md)
-[./node_modules/cascada-engine/docs/cascada/template.md](./node_modules/cascada-engine/docs/cascada/template.md)
-[../cascada/docs/cascada/script.md](../cascada/docs/cascada/script.md)
-[../cascada/docs/cascada/template.md](../cascada/docs/cascada/template.md)
-
-The installed package docs are also be available:
-[./node_modules/cascada-engine/dist/docs/README.md](./node_modules/cascada-engine/dist/docs/README.md)
-[./node_modules/cascada-script/dist/docs/script.md](./node_modules/cascada-script/dist/docs/script.md)
+- For Cascada docs, prefer `node_modules/cascada-engine/dist/docs/cascada-agent.md` when present; it is the AI agent-friendly compressed script/template reference and saves tokens.
+- If the compressed document is missing, or if syntax or semantics are unclear or contradictory, check the source docs: `node_modules/cascada-engine/dist/docs/script.md` and `node_modules/cascada-engine/dist/docs/template.md`.
 
 ## 4. Project Structure & Conventions
 
