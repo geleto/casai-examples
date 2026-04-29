@@ -78,16 +78,20 @@ async function runIndexing() {
 
 	console.log('Adding chunks to database...')
 	await indexPromise;
-	let count = 0;
-	for (const chunk of chunks) {
-		await index.insertItem({
-			vector: chunk.embedding,
-			metadata: { text: chunk.text }
-		});
-		process.stdout.write('.');
-		count++;
+	await index.beginUpdate();
+	try {
+		for (const chunk of chunks) {
+			await index.insertItem({
+				vector: chunk.embedding,
+				metadata: { text: chunk.text }
+			});
+		}
+		await index.endUpdate();
+		console.log(`Indexed ${chunks.length} semantic chunks.`);
+	} catch (error) {
+		index.cancelUpdate();
+		throw error;
 	}
-	console.log(`\nIndexed ${count} semantic chunks.`);
 }
 
 // relevanceFilter - Acts as a "Gatekeeper". Vector search finds things that *look* similar,
