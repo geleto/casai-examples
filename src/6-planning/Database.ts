@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const BASE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const SQLITE_HEADER = Buffer.from('SQLite format 3\0', 'ascii');
 
 interface ColumnInfo {
 	name: string;
@@ -43,9 +44,22 @@ export class Database {
 			mkdirSync(dataDir, { recursive: true });
 		}
 		const dbPath = path.join(dataDir, `${this.datasetName}.db`);
+		const sqlPath = path.join(dataDir, `${this.datasetName}.sql`);
 
-		// Download database if it doesn't exist
-		if (!existsSync(dbPath)) {
+		// Download database if it doesn't exist, or rebuild it if an older run
+		// cached a SQL script at the .db path.
+		if (existsSync(dbPath)) {
+			const cachedFile = await fs.readFile(dbPath);
+			if (!isSqliteDatabase(cachedFile)) {
+				if (!looksLikeSqlScript(cachedFile)) {
+					throw new Error(
+						`Cached database at ${dbPath} is not a valid SQLite database. Delete it and retry the download.`
+					);
+				}
+				console.log(`Cached file at ${dbPath} is a SQL script; rebuilding SQLite DB...`);
+				await createDatabaseFromSql(cachedFile.toString('utf-8'), dbPath);
+			}
+		} else {
 			console.log(
 				`Downloading SQLite DB for dataset "${this.datasetName}" from ${this.databaseUrl}...`
 			);
@@ -57,8 +71,19 @@ export class Database {
 			}
 			const arrayBuffer = await response.arrayBuffer();
 			const buffer = Buffer.from(arrayBuffer);
-			await fs.writeFile(dbPath, buffer);
-			console.log(`Saved DB to ${dbPath}`);
+			if (isSqliteDatabase(buffer)) {
+				await fs.writeFile(dbPath, buffer);
+				console.log(`Saved DB to ${dbPath}`);
+			} else if (looksLikeSqlScript(buffer)) {
+				await fs.writeFile(sqlPath, buffer);
+				console.log(`Saved SQL script to ${sqlPath}`);
+				await createDatabaseFromSql(buffer.toString('utf-8'), dbPath);
+				console.log(`Created DB at ${dbPath}`);
+			} else {
+				throw new Error(
+					`Downloaded file from ${this.databaseUrl} is neither a SQLite database nor a SQL script.`
+				);
+			}
 		}
 
 		// Open the database (whether just downloaded or already existed)
@@ -169,6 +194,29 @@ export class Database {
 	}
 
 	close(): void {
-		this.db.close();
+		this.db?.close();
+	}
+}
+
+function isSqliteDatabase(buffer: Buffer): boolean {
+	return buffer.subarray(0, SQLITE_HEADER.length).equals(SQLITE_HEADER);
+}
+
+function looksLikeSqlScript(buffer: Buffer): boolean {
+	const prefix = buffer.subarray(0, 4096).toString('utf-8').trimStart().toUpperCase();
+	return prefix.startsWith('/*')
+		|| prefix.startsWith('--')
+		|| prefix.startsWith('CREATE ')
+		|| prefix.includes('CREATE TABLE')
+		|| prefix.includes('INSERT INTO');
+}
+
+async function createDatabaseFromSql(sql: string, dbPath: string): Promise<void> {
+	await fs.rm(dbPath, { force: true });
+	const db = new Sqlite(dbPath);
+	try {
+		db.exec(sql);
+	} finally {
+		db.close();
 	}
 }
