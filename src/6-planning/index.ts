@@ -21,10 +21,9 @@
 
 import { writeFileSync } from 'fs';
 import { basicModel, advancedModel } from '../setup';
-import { create, FileSystemLoader } from 'casai';
+import { create, FileSystemLoader, z } from 'casai';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { z } from 'zod';
 import { Database } from './Database';
 
 import inputJson from './input.json';
@@ -142,10 +141,10 @@ const elementProcessor = create.Script({
 		previewJson: z.string().optional(),
 	})),
 	script: `
-		:data
-		@data = []
+		data processedElements
+		processedElements = []
 		for element in elements
-			@data.push(element)
+			var processedElement = element
 			if element.usesData and element.dataRequest
 				var sqlResult = sqlFromRequestGenerator({
 					datasetDescription: datasetDescription,
@@ -153,10 +152,12 @@ const elementProcessor = create.Script({
 					dataRequest: element.dataRequest
 				}).text
 				var rows = executeSql(sqlResult, database)
-				@data[].previewJson = generatePreviewJson(rows)
-				@data[].dataFile = saveData(rows, database)
+				processedElement.previewJson = generatePreviewJson(rows)
+				processedElement.dataFile = saveData(rows, database)
 			endif
-		endfor`
+			processedElements.push(processedElement)
+		endfor
+		return processedElements.snapshot()`
 });
 
 // ---------------------------------------------------------------------------

@@ -11,7 +11,7 @@
  *
  * KEY CONCEPTS:
  * - Write simple for loops - Cascada parallelizes automatically
- * - Use capture:data with @data.push to collect parallel results
+ * - Use data channels with snapshot() to collect ordered parallel results
  * - TextGenerator for prose, ObjectGenerator for structured data
  * - Use output: 'array' for simple array outputs
  * - Do math and sorting in JS, not in LLM
@@ -21,8 +21,7 @@
  */
 
 import { basicModel, advancedModel } from '../setup';
-import { create, FileSystemLoader } from 'casai';
-import { z } from 'zod';
+import { create, FileSystemLoader, z } from 'casai';
 import { fileURLToPath } from 'url';
 import inputData from './input.json';
 import * as types from './types';
@@ -142,7 +141,7 @@ const stockAnalysisAgent = create.Script({
 		calculateFinalScore,
 		rankAndFilter
 	},
-	script: `:data
+	script: `
 		// Create reusable investment context string
 		var investmentContext = investmentContextTemplate(config)
 
@@ -150,87 +149,89 @@ const stockAnalysisAgent = create.Script({
 		var markets = marketIdentifier(config).object
 
 		// STEP 2: Find stocks (parallel per market via for loop)
-		var allStocks = capture :data
-			@data = [] // will not be needed in the future
-			for market in markets
-				var result = stockFinder({
-					marketName: market,
-					investmentContext: investmentContext,
-					numStocksPerMarket: config.numStocksPerMarket
-				}).object.stocks
+		data foundStocks
+		foundStocks = []
+		for market in markets
+			var result = stockFinder({
+				marketName: market,
+				investmentContext: investmentContext,
+				numStocksPerMarket: config.numStocksPerMarket
+			}).object.stocks
 
-				if result is not error
-					for stock in result
-						if stock is not error
-							@data.push({
-								companyName: stock.companyName,
-								ticker: stock.ticker,
-								market: market
-							})
-						endif
-					endfor
-				endif
-			endfor
-		endcapture
-
-		// STEP 3: Analyze stocks (parallel via for loop)
-		var analyses = capture :data
-			@data = [] // will not be needed in the future
-			for stock in allStocks
-				// this will be 'error' if fetchYahooFinance threw in JS
-				var yahooData = fetchYahooFinance(stock.ticker)
-
-				if yahooData is not error
-					var companyInfo = companyInfoExtractor({
-						ticker: stock.ticker,
-						yahooData: yahooData
-					}).text
-
-					if companyInfo is not error
-						var analysis = analysisWriter({
-							ticker: stock.ticker,
+			if result is not error
+				for stock in result
+					if stock is not error
+						foundStocks.push({
 							companyName: stock.companyName,
-							market: stock.market,
-							companyInfo: companyInfo,
-							investmentContext: investmentContext
-						}).text
-
-						var scores = componentScorer({
 							ticker: stock.ticker,
-							companyName: stock.companyName,
-							analysis: analysis,
-							investmentContext: investmentContext
-						}).object
-
-						var finalScore = calculateFinalScore(scores)
-
-						@data.push({
-							ticker: stock.ticker,
-							companyName: stock.companyName,
-							market: stock.market,
-							analysis: analysis,
-							criteriaAlignment: scores.criteriaAlignment,
-							financialStrength: scores.financialStrength,
-							growthPotential: scores.growthPotential,
-							marketPosition: scores.marketPosition,
-							contrarianScore: scores.contrarianScore,
-							riskLevel: scores.riskLevel,
-							finalScore: finalScore
+							market: market
 						})
 					endif
+				endfor
+			endif
+		endfor
+		var allStocks = foundStocks.snapshot()
+
+		// STEP 3: Analyze stocks (parallel via for loop)
+		data stockAnalyses
+		stockAnalyses = []
+		for stock in allStocks
+			// this will be 'error' if fetchYahooFinance threw in JS
+			var yahooData = fetchYahooFinance(stock.ticker)
+
+			if yahooData is not error
+				var companyInfo = companyInfoExtractor({
+					ticker: stock.ticker,
+					yahooData: yahooData
+				}).text
+
+				if companyInfo is not error
+					var analysis = analysisWriter({
+						ticker: stock.ticker,
+						companyName: stock.companyName,
+						market: stock.market,
+						companyInfo: companyInfo,
+						investmentContext: investmentContext
+					}).text
+
+					var scores = componentScorer({
+						ticker: stock.ticker,
+						companyName: stock.companyName,
+						analysis: analysis,
+						investmentContext: investmentContext
+					}).object
+
+					var finalScore = calculateFinalScore(scores)
+
+					stockAnalyses.push({
+						ticker: stock.ticker,
+						companyName: stock.companyName,
+						market: stock.market,
+						analysis: analysis,
+						criteriaAlignment: scores.criteriaAlignment,
+						financialStrength: scores.financialStrength,
+						growthPotential: scores.growthPotential,
+						marketPosition: scores.marketPosition,
+						contrarianScore: scores.contrarianScore,
+						riskLevel: scores.riskLevel,
+						finalScore: finalScore
+					})
 				endif
-			endfor
-		endcapture
+			endif
+		endfor
+		var analyses = stockAnalyses.snapshot()
 
 		// STEP 4: Rank and filter in JS
 		var topStocks = rankAndFilter(analyses, config)
 
 		// OUTPUT
-		@data.markets = markets
-		@data.total = allStocks.length
-		@data.analyzed = analyses.length
-		@data.skipped = allStocks.length - analyses.length
-		@data.topStocks = topStocks
+		return {
+			markets: markets,
+			total: allStocks.length,
+			analyzed: analyses.length,
+			skipped: allStocks.length - analyses.length,
+			topStocks: topStocks
+		}
 	`
 });
 
@@ -238,7 +239,7 @@ const stockAnalysisAgent = create.Script({
 console.log('PARALLELIZATION PATTERN EXAMPLE\nDemonstrates automatic parallel execution through simple for loops.\n');
 console.log('Disclaimer: This analysis is for educational purposes only and does not constitute financial advice.\n');
 
-const result = await stockAnalysisAgent();
+const result = await stockAnalysisAgent() as types.StockAnalysisResult;
 
 // Format and print output using template
 const output = await outputTemplate(result);

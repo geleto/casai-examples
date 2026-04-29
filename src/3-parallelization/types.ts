@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'casai';
 
 // Schemas - only where structure needed
 
@@ -42,6 +42,8 @@ export const StockAnalysisResultSchema = z.object({
 	skipped: z.number(),
 	topStocks: z.array(RankedStockAnalysisSchema),
 });
+
+export type StockAnalysisResult = z.infer<typeof StockAnalysisResultSchema>;
 
 // TypeScript interfaces
 

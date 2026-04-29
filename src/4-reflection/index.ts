@@ -18,10 +18,9 @@
  */
 
 import fs from 'fs/promises';
-import { basicModel, advancedModel } from '../setup';
+import { advancedModel, basicModel, basicProviderName, createTemperatureConfig } from '../setup';
 
-import { create } from 'casai';
-import { z } from 'zod';
+import { create, z } from 'casai';
 
 console.log('REFLECTION PATTERN EXAMPLE\nDemonstrates an AI agent that improves its own output through self-critique.\n');
 
@@ -30,7 +29,7 @@ const inputFile = new URL('./input.txt', import.meta.url);
 // 1. Define a reusable base configuration using basicModel
 const baseLLMConfig = create.Config({
 	model: basicModel, //e.g. openai('gpt-4.1-nano');
-	temperature: 0.7,
+	...createTemperatureConfig(basicProviderName, 0.7),
 	//debug: true,
 });
 
@@ -71,8 +70,7 @@ const contentAgent = create.Script({
 		maxRevisions: 3,
 	},
 	script: // This script orchestrates the agent's "thought process".
-		`:data
-
+		`
     // --- Generate and critique the initial draft ---
     var currentDraft = draftGenerator({ topic: readTopic() }).text
     var critiqueResult = critiqueGenerator({ draft: currentDraft }).object
@@ -99,9 +97,11 @@ const contentAgent = create.Script({
     endwhile
 
     // --- Assemble the final result ---
-    @data.finalDraft = currentDraft
-    @data.finalScore = critiqueResult.score
-    @data.revisionsMade = revisionCount`
+    return {
+        finalDraft: currentDraft,
+        finalScore: critiqueResult.score,
+        revisionsMade: revisionCount
+    }`
 });
 
 // 4. Run the Agent

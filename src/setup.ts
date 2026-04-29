@@ -6,9 +6,21 @@ import { withProgressIndicator } from './model-logging';
 
 const showProgressIndicators = true;
 
+export const basicProviderName = 'openai';
+export const advancedProviderName = 'anthropic';
+export const defaultTemperature = 0.2;
+
+export function createTemperatureConfig(providerName: string, temperature = defaultTemperature) {
+	return providerName === 'openai' ? {} : { temperature };
+}
+
+export const basicTemperatureConfig = createTemperatureConfig(basicProviderName);
+
+export const advancedTemperatureConfig = createTemperatureConfig(advancedProviderName);
+
 // Export wrapped models with progress indicators
 export const basicModel = withProgressIndicator(
-	openai('gpt-5-nano'),
+	openai('gpt-5.4-nano'),
 	'GPT-5-nano',
 	showProgressIndicators
 );

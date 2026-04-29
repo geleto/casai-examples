@@ -16,9 +16,8 @@
  * - Semantic Chunking: Using `semantic-chunker` to break text by meaning, not just lines.
  */
 
-import { create } from 'casai';
+import { create, z } from 'casai';
 import { basicModel, advancedModel, embeddingModel } from '../setup';
-import { z } from 'zod';
 import { embed, embedMany } from 'ai';
 import { chunkText } from 'semachunk';
 import fs from 'fs/promises';
@@ -158,25 +157,25 @@ const ragAgent = create.Script({
 		queryVectorDb,
 		CONCURRENCY_LIMIT
 	},
-	script: `:data
+	script: `
 		// Step 1: Retrieve Candidates (JS Helper)
 		var candidates = queryVectorDb(query)
 
 		// Step 2: Agentic Filtering (Parallel Loop)
 		// Evaluate all candidates in parallel (up to CONCURRENCY_LIMIT).
-		var verifiedChunks = capture :data
-			@data = []
-			for text in candidates of CONCURRENCY_LIMIT
-				var check = relevanceFilter({
-					query: query,
-					chunkText: text
-				}).object
+		data relevantChunks
+		relevantChunks = []
+		for text in candidates of CONCURRENCY_LIMIT
+			var check = relevanceFilter({
+				query: query,
+				chunkText: text
+			}).object
 
-				if check.isRelevant
-					@data.push(text)
-				endif
-			endfor
-		endcapture
+			if check.isRelevant
+				relevantChunks.push(text)
+			endif
+		endfor
+		var verifiedChunks = relevantChunks.snapshot()
 
 		// Step 3: Synthesize Answer
 		var answer = synthesizeAnswer({
@@ -185,17 +184,29 @@ const ragAgent = create.Script({
 		}).text
 
 		// Output Result
-		@data.stats.found = candidates.length
-		@data.stats.verified = verifiedChunks.length
-		@data.answer = answer`
+		return {
+			stats: {
+				found: candidates.length,
+				verified: verifiedChunks.length
+			},
+			answer: answer
+		}`
 });
+
+type RagResult = {
+	stats: {
+		found: number;
+		verified: number;
+	};
+	answer: string;
+};
 
 console.log('RAG (RETRIEVAL-AUGMENTED GENERATION) PATTERN EXAMPLE\nDemonstrates building an intelligent knowledge retrieval system.\n');
 
 await runIndexing();
 console.log('\n--- RAG Agent Starts ---');
 const query = await fs.readFile(INPUT_FILE, 'utf-8');
-const result = await ragAgent({ query });
+const result = await ragAgent({ query }) as RagResult;
 console.log(`Q: ${query}`);
 console.log(`Stats: Retrieved ${result.stats.found} candidates, Verified ${result.stats.verified} as relevant.`);
 console.log(`\nAnswer:\n${result.answer}\n`);

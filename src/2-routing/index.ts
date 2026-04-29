@@ -79,8 +79,6 @@ const supportAgent = create.Script({
 		}
 	},
 	script: `
-		:data
-
 		// Step 1: Read and classify the inquiry
 		var inquiry = readInquiry()
 		var category = inquiryClassifier({ inquiry: inquiry }).object
@@ -95,9 +93,11 @@ const supportAgent = create.Script({
 		endif
 
 		// Step 3: Assemble the result with metadata
-		@data.category = category
-		@data.response = response
-		@data.originalInquiry = inquiry
+		return {
+			category: category,
+			response: response,
+			originalInquiry: inquiry
+		}
 	`
 });
 

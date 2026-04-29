@@ -17,7 +17,7 @@
  */
 
 import fs from 'fs/promises';
-import { basicModel } from '../setup';
+import { basicModel, basicProviderName, createTemperatureConfig } from '../setup';
 import { create } from 'casai';
 
 console.log('PROMPT CHAINING EXAMPLE\nDemonstrates breaking down a complex task into a sequence of simpler steps.\n');
@@ -27,7 +27,7 @@ const inputFile = new URL('./input.txt', import.meta.url);
 // 1. Define base configuration
 const baseLLMConfig = create.Config({
 	model: basicModel,
-	temperature: 0.7,
+	...createTemperatureConfig(basicProviderName, 0.7),
 });
 
 // 2. Define each step in the chain
@@ -62,8 +62,6 @@ const articleAgent = create.Script({
 		readTopic: async () => (await fs.readFile(inputFile, 'utf-8')).trim(),
 	},
 	script: `
-		:data
-
 		// Step 1: Research the topic
 		var topic = readTopic()
 		var facts = researcher({ topic: topic }).text
@@ -78,10 +76,12 @@ const articleAgent = create.Script({
 		var title = titleGenerator({ article: article }).text
 
 		// Output the final result
-		@data.title = title
-		@data.article = article
-		@data.outline = outline
-		@data.facts = facts
+		return {
+			title: title,
+			article: article,
+			outline: outline,
+			facts: facts
+		}
 	`
 });
 
