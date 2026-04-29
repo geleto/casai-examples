@@ -142,17 +142,19 @@ async function queryVectorDb(query: string): Promise<string[]> {
 	return results.map((r: QueryResult<{ text: string }>) => r.item.metadata.text);
 }
 
+const RagResultSchema = z.object({
+	stats: z.object({
+		found: z.number(),
+		verified: z.number()
+	}),
+	answer: z.string()
+});
+
 const ragAgent = create.Script({
 	inputSchema: z.object({
 		query: z.string()
 	}),
-	schema: z.object({
-		stats: z.object({
-			found: z.number(),
-			verified: z.number()
-		}),
-		answer: z.string()
-	}),
+	schema: RagResultSchema,
 	context: {
 		relevanceFilter,
 		synthesizeAnswer,
@@ -167,14 +169,14 @@ const ragAgent = create.Script({
 		// Evaluate all candidates in parallel (up to CONCURRENCY_LIMIT).
 		data relevantChunks
 		relevantChunks = []
-		for text in candidates of CONCURRENCY_LIMIT
+		for chunk in candidates of CONCURRENCY_LIMIT
 			var check = relevanceFilter({
 				query: query,
-				chunkText: text
+				chunkText: chunk
 			}).object
 
 			if check.isRelevant
-				relevantChunks.push(text)
+				relevantChunks.push(chunk)
 			endif
 		endfor
 		var verifiedChunks = relevantChunks.snapshot()
@@ -195,20 +197,12 @@ const ragAgent = create.Script({
 		}`
 });
 
-interface RagResult {
-	stats: {
-		found: number;
-		verified: number;
-	};
-	answer: string;
-}
-
 console.log('RAG (RETRIEVAL-AUGMENTED GENERATION) PATTERN EXAMPLE\nDemonstrates building an intelligent knowledge retrieval system.\n');
 
 await runIndexing();
 console.log('\n--- RAG Agent Starts ---');
 const query = await fs.readFile(INPUT_FILE, 'utf-8');
-const result = await ragAgent({ query }) as RagResult;
+const result = RagResultSchema.parse(await ragAgent({ query }));
 console.log(`Q: ${query}`);
 console.log(`Stats: Retrieved ${result.stats.found} candidates, Verified ${result.stats.verified} as relevant.`);
 console.log(`\nAnswer:\n${result.answer}\n`);
