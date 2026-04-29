@@ -20,7 +20,7 @@
  */
 
 import { writeFileSync } from 'fs';
-import { basicModel, advancedModel } from '../setup';
+import { basicModel, advancedModel, providerOptions } from '../setup';
 import { create, FileSystemLoader, z } from 'casai';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -64,6 +64,7 @@ type DashboardElement = z.infer<typeof dashboardElementSchema> & {
 // ---------------------------------------------------------------------------
 const plannerAgent = create.ObjectGenerator.loadsTemplate({
 	model: advancedModel,
+	providerOptions,
 	loader: templateLoader,
 	prompt: 'planner-agent.md',
 	output: 'array',
@@ -76,6 +77,7 @@ const plannerAgent = create.ObjectGenerator.loadsTemplate({
 // ---------------------------------------------------------------------------
 const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 	model: advancedModel,
+	providerOptions,
 	loader: templateLoader,
 	prompt: 'sql-generator.md',
 });
@@ -85,6 +87,7 @@ const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 // ---------------------------------------------------------------------------
 const dashboardBodyGenerator = create.TextGenerator.loadsTemplate({
 	model: basicModel,
+	providerOptions,
 	loader: templateLoader,
 	prompt: 'dashboard-generator.md',
 });

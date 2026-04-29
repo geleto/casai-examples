@@ -18,7 +18,7 @@
  */
 
 import fs from 'fs/promises';
-import { basicModel, advancedModel } from '../setup';
+import { basicModel, advancedModel, providerOptions } from '../setup';
 import { create } from 'casai';
 
 console.log('ROUTING PATTERN EXAMPLE\nDemonstrates routing different types of inputs to specialized handlers.\n');
@@ -27,11 +27,13 @@ const inputFile = new URL('./input.txt', import.meta.url);
 
 // 1. Define configurations for different handler types
 const quickResponseConfig = create.Config({
-	model: basicModel
+	model: basicModel,
+	providerOptions,
 });
 
 const detailedResponseConfig = create.Config({
-	model: advancedModel
+	model: advancedModel,
+	providerOptions,
 });
 
 // 2. Define the classifier using enum output for efficient routing

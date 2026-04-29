@@ -8,15 +8,12 @@ const showProgressIndicators = true;
 
 export const basicProviderName = 'openai';
 export const advancedProviderName = 'anthropic';
-export const defaultTemperature = 0.2;
 
-export function createTemperatureConfig(providerName: string, temperature = defaultTemperature) {
-	return providerName === 'openai' ? {} : { temperature };
-}
-
-export const basicTemperatureConfig = createTemperatureConfig(basicProviderName);
-
-export const advancedTemperatureConfig = createTemperatureConfig(advancedProviderName);
+export const providerOptions = {
+	anthropic: {
+		structuredOutputMode: 'jsonTool' as const,
+	},
+};
 
 // Export wrapped models with progress indicators
 export const basicModel = withProgressIndicator(

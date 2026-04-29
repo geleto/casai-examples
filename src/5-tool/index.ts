@@ -19,7 +19,7 @@
  */
 
 import { create, z } from 'casai';
-import { advancedModel, advancedProviderName, basicModel, basicProviderName, createTemperatureConfig } from '../setup';
+import { advancedModel, basicModel, providerOptions } from '../setup';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -28,7 +28,7 @@ import { stepCountIs } from 'ai';
 // Tool 1: LLM-powered time interpreter
 const timeInterpreterTool = create.ObjectGenerator.withTemplate.asTool({
 	model: advancedModel,
-	...createTemperatureConfig(advancedProviderName, 0),
+	providerOptions,
 	context: {
 		getCurrentTime: () => new Date().toISOString()
 	},
@@ -192,7 +192,7 @@ const weatherFetchTool = create.Function.asTool({
 // Agent that uses all three tools to answer weather queries
 const weatherAssistant = create.TextGenerator({
 	model: basicModel,
-	...createTemperatureConfig(basicProviderName, 0.3),
+	providerOptions,
 	system: `You are a weather assistant. Answer weather questions using these tools in order:
 
 1. Use geocodeTool to get coordinates and UTC offset for the location

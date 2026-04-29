@@ -20,7 +20,7 @@
  * TODO: Skip when there are duplicates between categories
  */
 
-import { basicModel, advancedModel } from '../setup';
+import { basicModel, advancedModel, providerOptions } from '../setup';
 import { create, FileSystemLoader, z } from 'casai';
 import { fileURLToPath } from 'url';
 import inputData from './input.json';
@@ -28,11 +28,13 @@ import * as types from './types';
 
 // Define model configurations
 const quickConfig = create.Config({
-	model: basicModel
+	model: basicModel,
+	providerOptions,
 });
 
 const analyticalConfig = create.Config({
-	model: advancedModel
+	model: advancedModel,
+	providerOptions,
 });
 
 // Shared loader for all templates (instead of path)

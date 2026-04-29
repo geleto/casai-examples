@@ -17,7 +17,7 @@
  */
 
 import { create, z } from 'casai';
-import { basicModel, advancedModel, embeddingModel } from '../setup';
+import { basicModel, advancedModel, embeddingModel, providerOptions } from '../setup';
 import { embed, embedMany } from 'ai';
 import { chunkText } from 'semachunk';
 import fs from 'fs/promises';
@@ -94,6 +94,7 @@ async function runIndexing() {
 // but this component reads the text to ensure it actually answers the question.
 const relevanceFilter = create.ObjectGenerator.withTemplate({
 	model: basicModel,
+	providerOptions,
 	inputSchema: z.object({
 		query: z.string(),
 		chunkText: z.string()
@@ -114,6 +115,7 @@ CHUNK:
 // synthesizeAnswer - Generates the final answer using only the verified context.
 const synthesizeAnswer = create.TextGenerator.withTemplate({
 	model: advancedModel,
+	providerOptions,
 	inputSchema: z.object({
 		query: z.string(),
 		chunks: z.array(z.string())

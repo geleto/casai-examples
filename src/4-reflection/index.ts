@@ -18,7 +18,7 @@
  */
 
 import fs from 'fs/promises';
-import { advancedModel, basicModel, basicProviderName, createTemperatureConfig } from '../setup';
+import { advancedModel, basicModel, providerOptions } from '../setup';
 
 import { create, z } from 'casai';
 
@@ -29,7 +29,7 @@ const inputFile = new URL('./input.txt', import.meta.url);
 // 1. Define a reusable base configuration using basicModel
 const baseLLMConfig = create.Config({
 	model: basicModel, //e.g. openai('gpt-4.1-nano');
-	...createTemperatureConfig(basicProviderName, 0.7),
+	providerOptions,
 	//debug: true,
 });
 
@@ -44,9 +44,10 @@ const draftGenerator = create.TextGenerator.withTemplate({
 // This overrides the model to use the advanced model
 const critiqueGenerator = create.ObjectGenerator.withTemplate({
 	model: advancedModel, // e.g. anthropic('claude-3-7-sonnet-latest')
+	providerOptions,
 	output: 'object',
 	schema: z.object({
-		score: z.number().int().min(1).max(10).describe('Quality score from 1-10 on clarity and engagement.'),
+		score: z.number().min(1).max(10).describe('Quality score from 1-10 on clarity and engagement.'),
 		suggestions: z.array(z.string()).min(1).describe('List of specific, actionable suggestions for improvement.'),
 	}),
 	prompt: 'Critique this blog post. Provide a quality score and concrete suggestions for improvement.\n\nPOST:\n{{ draft }}',
@@ -56,7 +57,6 @@ const critiqueGenerator = create.ObjectGenerator.withTemplate({
 const revisionGenerator = create.TextGenerator.withTemplate({
 	prompt: 'Rewrite the following blog post based on the suggestions provided.\n\nORIGINAL POST:\n{{ draft }}\n\nSUGGESTIONS:\n- {{ suggestions | join("\n- ") }}\n\nREVISED POST:',
 }, baseLLMConfig);
-
 // 3. Define the Orchestrator Script
 const contentAgent = create.Script({
 	context: {
