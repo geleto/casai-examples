@@ -19,10 +19,11 @@
  * - Multi-step Chaining: Planner, data fetcher, and code generator
  */
 
+import { spawn } from 'child_process';
 import { writeFileSync } from 'fs';
 import { basicModel, advancedModel, providerOptions } from '../setup';
 import { create, FileSystemLoader, z } from 'casai';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import path from 'path';
 import { Database } from './Database';
 
@@ -40,6 +41,24 @@ const input: PlanningInput = inputJson;
 const BASE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_HTML = path.join(BASE_DIR, 'dashboard.html');
 const templateLoader = new FileSystemLoader(fileURLToPath(new URL('./templates', import.meta.url)));
+
+function openInBrowser(url: string): void {
+	const command = process.platform === 'win32'
+		? 'cmd'
+		: process.platform === 'darwin'
+			? 'open'
+			: 'xdg-open';
+	const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+	const child = spawn(command, args, {
+		detached: true,
+		stdio: 'ignore',
+		windowsHide: true,
+	});
+	child.on('error', (error) => {
+		console.warn(`Could not open dashboard automatically: ${error.message}`);
+	});
+	child.unref();
+}
 
 const collectedData: Record<string, unknown> = {};
 let dataPointCounter = 1;
@@ -219,14 +238,16 @@ try {
 	const dataScript = `<script>window.dashboardData = ${JSON.stringify(collectedData)};</script>`;
 	const finalHtml = await dashboardTemplate({ bodyHtml, dataScript });
 	writeFileSync(OUTPUT_HTML, finalHtml, 'utf-8');
+	const dashboardUrl = pathToFileURL(OUTPUT_HTML).href;
 	console.log('\nDashboard written to:', OUTPUT_HTML);
-	console.log('Open this file in your browser to view the generated dashboard.');
+	console.log('Dashboard URL:', dashboardUrl);
+	openInBrowser(dashboardUrl);
 
 	console.log('\n--- Dashboard generation complete ---');
-	console.log(`Generated dashboard: ${OUTPUT_HTML}`);
+	console.log(`Generated dashboard: ${dashboardUrl}`);
 
 } catch (error) {
-	console.error('Dashboard generation fasiled:', error);
+	console.error('Dashboard generation failed:', error);
 } finally {
 	database.close();
 }

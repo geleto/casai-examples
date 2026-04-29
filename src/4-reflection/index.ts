@@ -20,11 +20,13 @@
 import fs from 'fs/promises';
 import { advancedModel, basicModel, providerOptions } from '../setup';
 
-import { create, z } from 'casai';
+import { create, FileSystemLoader, z } from 'casai';
+import { fileURLToPath } from 'url';
 
 console.log('REFLECTION PATTERN EXAMPLE\nDemonstrates an AI agent that improves its own output through self-critique.\n');
 
 const inputFile = new URL('./input.txt', import.meta.url);
+const templateLoader = new FileSystemLoader(fileURLToPath(new URL('./templates', import.meta.url)));
 
 // 1. Define a reusable base configuration using basicModel
 const baseLLMConfig = create.Config({
@@ -57,8 +59,21 @@ const critiqueGenerator = create.ObjectGenerator.withTemplate({
 const revisionGenerator = create.TextGenerator.withTemplate({
 	prompt: 'Rewrite the following blog post based on the suggestions provided.\n\nORIGINAL POST:\n{{ draft }}\n\nSUGGESTIONS:\n- {{ suggestions | join("\n- ") }}\n\nREVISED POST:',
 }, baseLLMConfig);
+
+const outputTemplate = create.Template.loadsTemplate({
+	loader: templateLoader,
+	template: 'output.txt',
+});
+
+const ContentResultSchema = z.object({
+	finalDraft: z.string(),
+	finalScore: z.number().min(1).max(10),
+	revisionsMade: z.number().int().min(0),
+});
+
 // 3. Define the Orchestrator Script
 const contentAgent = create.Script({
+	schema: ContentResultSchema,
 	context: {
 		// Provide the renderers to the script
 		draftGenerator,
@@ -105,5 +120,6 @@ const contentAgent = create.Script({
 });
 
 // 4. Run the Agent
-const result = await contentAgent();
-console.log(JSON.stringify(result, null, 2));
+const result = ContentResultSchema.parse(await contentAgent());
+const output = await outputTemplate(result);
+console.log(output);

@@ -19,11 +19,13 @@
 
 import fs from 'fs/promises';
 import { basicModel, advancedModel, providerOptions } from '../setup';
-import { create } from 'casai';
+import { create, FileSystemLoader, z } from 'casai';
+import { fileURLToPath } from 'url';
 
 console.log('ROUTING PATTERN EXAMPLE\nDemonstrates routing different types of inputs to specialized handlers.\n');
 
 const inputFile = new URL('./input.txt', import.meta.url);
+const templateLoader = new FileSystemLoader(fileURLToPath(new URL('./templates', import.meta.url)));
 
 // 1. Define configurations for different handler types
 const quickResponseConfig = create.Config({
@@ -65,8 +67,20 @@ const urgentHandler = create.TextGenerator.withTemplate({
 	prompt: 'Provide an immediate response to this urgent inquiry:\n\n{{ inquiry }}\n\nPrioritize:\n- Acknowledgment of urgency\n- Immediate action items\n- Escalation path if needed\n- Expected resolution timeline',
 }, detailedResponseConfig);
 
+const outputTemplate = create.Template.loadsTemplate({
+	loader: templateLoader,
+	template: 'output.txt',
+});
+
+const SupportResultSchema = z.object({
+	category: z.enum(['technical', 'billing', 'general', 'urgent']),
+	response: z.string(),
+	originalInquiry: z.string(),
+});
+
 // 4. Create the routing script
 const supportAgent = create.Script({
+	schema: SupportResultSchema,
 	context: {
 		inquiryClassifier,
 		handlers: {
@@ -104,5 +118,6 @@ const supportAgent = create.Script({
 });
 
 // 5. Run the routing agent
-const result = await supportAgent();
-console.log(JSON.stringify(result, null, 2));
+const result = SupportResultSchema.parse(await supportAgent());
+const output = await outputTemplate(result);
+console.log(output);

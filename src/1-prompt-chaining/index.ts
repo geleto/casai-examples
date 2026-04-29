@@ -18,11 +18,13 @@
 
 import fs from 'fs/promises';
 import { basicModel, providerOptions } from '../setup';
-import { create } from 'casai';
+import { create, FileSystemLoader, z } from 'casai';
+import { fileURLToPath } from 'url';
 
 console.log('PROMPT CHAINING EXAMPLE\nDemonstrates breaking down a complex task into a sequence of simpler steps.\n');
 
 const inputFile = new URL('./input.txt', import.meta.url);
+const templateLoader = new FileSystemLoader(fileURLToPath(new URL('./templates', import.meta.url)));
 
 // 1. Define base configuration
 const baseLLMConfig = create.Config({
@@ -52,8 +54,21 @@ const titleGenerator = create.TextGenerator.withTemplate({
 	prompt: 'Create a catchy, engaging title for this article:\n\n{{ article }}\n\nTitle:',
 }, baseLLMConfig);
 
+const outputTemplate = create.Template.loadsTemplate({
+	loader: templateLoader,
+	template: 'output.txt',
+});
+
+const ArticleResultSchema = z.object({
+	title: z.string(),
+	article: z.string(),
+	outline: z.string(),
+	facts: z.string(),
+});
+
 // 3. Chain the steps together in a script
 const articleAgent = create.Script({
+	schema: ArticleResultSchema,
 	context: {
 		researcher,
 		outliner,
@@ -86,5 +101,6 @@ const articleAgent = create.Script({
 });
 
 // 4. Run the chain
-const result = await articleAgent();
-console.log(JSON.stringify(result, null, 2));
+const result = ArticleResultSchema.parse(await articleAgent());
+const output = await outputTemplate(result);
+console.log(output);
