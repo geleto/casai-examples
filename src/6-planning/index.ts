@@ -27,13 +27,15 @@ import path from 'path';
 import { Database } from './Database';
 
 import inputJson from './input.json';
-const input = inputJson as {
+interface PlanningInput {
 	userRequest: string;
 	datasetName: string;
 	datasetDescription: string;
 	databaseUrl: string;
 	port: number;
-};
+}
+
+const input: PlanningInput = inputJson;
 
 const BASE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_HTML = path.join(BASE_DIR, 'dashboard.html');
@@ -189,7 +191,7 @@ try {
 	console.log(`\nPlanner returned ${elements.length} elements. Processing data requests...`);
 
 	// 6. Process elements (fetch data) using Cascada Script for concurrency
-	const processedElements = (await elementProcessor({ elements, database, schemaSummary })) as unknown as DashboardElement[];
+	const processedElements = await elementProcessor({ elements, database, schemaSummary }) as DashboardElement[];
 
 	// 7. Generate Plan Text using Template
 	const overallIntent = `- User Request: ${input.userRequest}`;

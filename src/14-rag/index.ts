@@ -24,8 +24,8 @@ import fs from 'fs/promises';
 import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-//make eslint happy as vectra does not have `exports` field in package.json:
-import { LocalIndex } from 'vectra/lib/index.js';
+import { LocalIndex } from 'vectra';
+import type { QueryResult } from 'vectra';
 
 const SOTU_URL = 'https://huggingface.co/datasets/rewoo/sotu_qa_2023/resolve/main/state_of_the_union.txt';
 const INDEX_FOLDER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'vectra_index');
@@ -137,7 +137,7 @@ async function queryVectorDb(query: string): Promise<string[]> {
 	const queryVector = await singleEmbed(query);
 	// Retrieve top 20 items (Broad Search)
 	const results = await index.queryItems(queryVector, query, 20);
-	return results.map(r => r.item.metadata.text);
+	return results.map((r: QueryResult<{ text: string }>) => r.item.metadata.text);
 }
 
 const ragAgent = create.Script({
@@ -193,13 +193,13 @@ const ragAgent = create.Script({
 		}`
 });
 
-type RagResult = {
+interface RagResult {
 	stats: {
 		found: number;
 		verified: number;
 	};
 	answer: string;
-};
+}
 
 console.log('RAG (RETRIEVAL-AUGMENTED GENERATION) PATTERN EXAMPLE\nDemonstrates building an intelligent knowledge retrieval system.\n');
 
