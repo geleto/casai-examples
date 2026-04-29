@@ -118,7 +118,8 @@ npm run clean
 ```
 
 This will remove generated artifacts like the `vectra_index` directory.
-```
+
+Run `npm run clean` before rerunning an example when you want it to download or rebuild different generated data. For example, if you change the database URL in example 6, clean first so the old cached database is removed and the new source is used.
 
 ## Examples Overview
 
