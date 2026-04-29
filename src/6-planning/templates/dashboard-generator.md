@@ -22,6 +22,16 @@ Requirements for the generated HTML:
 - Output a single <body>...</body> element and nothing else.
 - Use a top-level <div class="container my-4"> as the main wrapper.
 - Use Bootstrap rows and columns to arrange dashboard elements (full-width, half-width, third-width) based on the layoutHint in the plan.
+- KPI layout is special and overrides layoutHint:
+  - Count all elements where type=kpi.
+  - Render all KPI cards together at the top of the dashboard, before charts, tables, and text.
+  - If there are 2 KPIs: use one row with two equal columns (`col-12 col-md-6` + `col-12 col-md-6`).
+  - If there are 3 KPIs: use one row with three equal columns (`col-12 col-md-4` each).
+  - If there are 4 KPIs: use two rows with two equal columns per row (`col-12 col-md-6` each).
+  - If there are 5 KPIs: use one top row with three equal columns (`col-12 col-lg-4` each), then one second row with two equal columns (`col-12 col-md-6` each).
+  - If there are 6 or more KPIs: use a compact KPI grid with three equal columns per desktop row (`col-12 col-md-6 col-xl-4` each), wrapping naturally into as many rows as needed.
+  - Do not leave a single KPI alone in a narrow one-third column when there are 4 or 5 total KPIs.
+  - On small screens, every KPI should stack full-width with `col-12`.
 
 2) Elements
 - For each element in the plan:
