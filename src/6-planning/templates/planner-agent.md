@@ -15,10 +15,9 @@ Your job:
 Output:
 - A structured list of dashboard elements.
 - **KPIs**: Always place important KPI cards first in the list so the renderer can group them at the top.
-  - Use `layoutHint: "half-width"` when the dashboard has 2 or 4 KPIs.
-  - Use `layoutHint: "third-width"` when the dashboard has 3 or 5 KPIs.
   - Prefer 2-5 KPI cards.
-  - If the user explicitly asks for many metrics and 6 or more KPIs are necessary, use `layoutHint: "third-width"` for those KPIs.
+  - Use `layoutHint: "half-width"` when there are 2 or 4 KPIs; otherwise use `layoutHint: "third-width"`.
+  - Only create 6 or more KPIs when the user explicitly asks for many metrics.
 - **Data**: `dataRequest` must be a clear natural-language description of *what* data to fetch (e.g., "Daily sales revenue for the last 30 days").
 - **Layout**: Use `layoutHint` to create a balanced design.
   - Use 'full-width' for main charts or complex tables.
