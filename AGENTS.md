@@ -44,7 +44,7 @@ A **parallel-by-default orchestration language** embedded in JS.
 Important concepts:
 
 * **Dataflow execution**: no `await`; operations run when inputs are ready.
-* **Parallel loops**: `for … in …`
+* **Parallel loops**: `for ... in ...`
 * **Sequential loops**: `while`, `each`
 * **Loop concurrency limits**: `for x in y of N`
 * **Structured output**: `@data`, `@text`, focus blocks `:data`, `:text`
@@ -58,12 +58,16 @@ Important concepts:
 For the complete Casai API documentation, see the **Casai README**:
 [./node_modules/casai/README.md](./node_modules/casai/README.md)
 
-For the Cascada documentation, see the **Cascada README**:
+For Cascada docs, prefer the installed agent-friendly reference when present:
+[./node_modules/cascada-engine/docs/cascada/cascada-agent.md](./node_modules/cascada-engine/docs/cascada/cascada-agent.md)
+
+If the compressed Cascada reference is missing, or if syntax or semantics are unclear or contradictory, check the source docs:
+[./node_modules/cascada-engine/docs/cascada/script.md](./node_modules/cascada-engine/docs/cascada/script.md)
+[./node_modules/cascada-engine/docs/cascada/template.md](./node_modules/cascada-engine/docs/cascada/template.md)
+
+The installed package docs are also be available:
 [./node_modules/cascada-engine/dist/docs/README.md](./node_modules/cascada-engine/dist/docs/README.md)
-
-For the Cascada Script documentation, see the **Cascada Script Documentation**:
 [./node_modules/cascada-script/dist/docs/script.md](./node_modules/cascada-script/dist/docs/script.md)
-
 
 ## 4. Project Structure & Conventions
 
@@ -82,7 +86,7 @@ Use:
 ```bash
 npm run example 1
 npm run example 2
-…
+...
 ```
 
 ---
@@ -102,10 +106,10 @@ Each example should clearly demonstrate the Casai/Cascada API feature it was des
 
 Use the right component for the underlying need:
 
-* Prompt templates → `TextGenerator.withTemplate`
-* Structured outputs → `ObjectGenerator` + `schema`
-* Internal logic → `Script`
-* Tool integration → `.asTool()`
+* Prompt templates -> `TextGenerator.withTemplate`
+* Structured outputs -> `ObjectGenerator` + `schema`
+* Internal logic -> `Script`
+* Tool integration -> `.asTool()`
 
 ### 5.4 Use Zod for All Structured Output
 
@@ -118,6 +122,14 @@ Follow established idioms:
 * Use `@data`, `capture :data`, `is error`
 * Keep parallel loops parallel unless strict ordering is required
 * Never mix JS async control primitives inside Cascada Script workflows
+
+### 5.6 Casai Input Schemas
+
+`inputSchema` validates call-time context. Do not put required input-only fields only in configured `context`.
+
+### 5.7 TypeScript Imports
+
+With current ESM packages, type-only exports must use `import type`.
 
 ---
 
@@ -135,7 +147,7 @@ This list is **not** about agentic patterns; it is specifically about:
 
 ---
 
-## 6.1 Example 1 — **Prompt Chaining**
+## 6.1 Example 1 - **Prompt Chaining**
 
 **Directory:** `src/1-prompt-chaining/`
 
@@ -163,7 +175,7 @@ This list is **not** about agentic patterns; it is specifically about:
 
 ---
 
-## 6.2 Example 2 — **Routing (Classification + Handler Mapping)**
+## 6.2 Example 2 - **Routing (Classification + Handler Mapping)**
 
 **Directory:** `src/2-routing/`
 
@@ -182,7 +194,7 @@ This list is **not** about agentic patterns; it is specifically about:
 * **Conditional execution (`if handler ... else ...`)**
   Reference script for branch-based routing.
 * **Reading input from file in context + passing into script**
-  Shows how to embed external side-effects in the script’s context.
+  Shows how to embed external side-effects in the script's context.
 
 **Use this example when you need to reference:**
 
@@ -192,7 +204,7 @@ This list is **not** about agentic patterns; it is specifically about:
 
 ---
 
-## 6.3 Example 3 — **Parallelization (Large Workflows)**
+## 6.3 Example 3 - **Parallelization (Large Workflows)**
 
 **Directory:** `src/3-parallelization/`
 
@@ -215,7 +227,7 @@ This is the most complete reference for **Casai + Cascada together**.
 * **Parallel `for` loops** as primary orchestration mechanism.
 * **`capture :data` blocks** to accumulate outputs from parallel steps.
 * **Error flow control using `is error`** to skip failing items.
-* **Nested parallelism**: parallel markets → parallel stocks.
+* **Nested parallelism**: parallel markets -> parallel stocks.
 * **Combining JS functions in script context**
   (`fetchYahooFinance`, `calculateFinalScore`, etc.)
 
@@ -234,7 +246,7 @@ This example is the **primary reference** for:
 
 ---
 
-## 6.4 Example 4 — **Reflection (Self-Critique Loop)**
+## 6.4 Example 4 - **Reflection (Self-Critique Loop)**
 
 **Directory:** `src/4-reflection/`
 
@@ -252,8 +264,8 @@ This example is the **primary reference** for:
   This is the canonical reference for sequential loops in Cascada.
   Use this when strict ordering is needed and parallelism must not occur.
 * **Conditional acceptance of revisions**
-  Shows “compare + overwrite” logic implemented in Cascada.
-* **Mutable variables** (`var currentDraft = …; currentDraft = revisedDraft;`)
+  Shows "compare + overwrite" logic implemented in Cascada.
+* **Mutable variables** (`var currentDraft = ...; currentDraft = revisedDraft;`)
   Reference for stateful script evolution.
 
 **Use this example when you need to reference:**
@@ -264,7 +276,7 @@ This example is the **primary reference** for:
 
 ---
 
-## 6.5 Example 5 — **Tool Use (LLM Tools + HTTP Tools)**
+## 6.5 Example 5 - **Tool Use (LLM Tools + HTTP Tools)**
 
 **Directory:** `src/5-tool/`
 
@@ -299,7 +311,24 @@ This example is the **primary reference** for:
 
 ---
 
-## 7. Adding a New Example
+## 7. Testing and Environment
+
+### 7.1 Running Examples
+
+LLM-backed examples may cost time and money. Prefer running only the single example relevant to the change.
+
+### 7.2 Environment
+
+Examples may load API keys from a project-root `.env`:
+
+```env
+ANTHROPIC_API_KEY=...
+OPENAI_API_KEY=...
+```
+
+---
+
+## 8. Adding a New Example
 
 Follow the existing project structure:
 
@@ -316,8 +345,8 @@ Follow the existing project structure:
 
 When selecting which example to copy from, use the references in Section 6:
 
-* Need structured classification? → Example 2
-* Need parallel loops? → Example 3
-* Need strict sequential loops? → Example 4
-* Need tools? → Example 5
-* Need simple template-based renderers chained together? → Example 1
+* Need structured classification? -> Example 2
+* Need parallel loops? -> Example 3
+* Need strict sequential loops? -> Example 4
+* Need tools? -> Example 5
+* Need simple template-based renderers chained together? -> Example 1
