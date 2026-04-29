@@ -47,7 +47,10 @@ Important concepts:
 * **Parallel loops**: `for ... in ...`
 * **Sequential loops**: `while`, `each`
 * **Loop concurrency limits**: `for x in y of N`
-* **Structured output**: `@data`, `@text`, focus blocks `:data`, `:text`
+* **Explicit returns**: scripts return values with `return`
+* **Plain variables and object literals** for ordinary structured results
+* **Typed channels** (`data`, `text`) only when ordered assembly from concurrent writes is needed
+* **Explicit snapshots** (`result.snapshot()`) when materializing channel values
 * **Poisoned values** (`is error`) for safe error handling
 * **Templates** with Nunjucks-like syntax
 
@@ -58,12 +61,15 @@ Important concepts:
 For the complete Casai API documentation, see the **Casai README**:
 [./node_modules/casai/README.md](./node_modules/casai/README.md)
 
-For Cascada docs, prefer the installed agent-friendly reference when present:
+For Cascada docs, prefer the installed or linked agent-friendly reference when present:
 [./node_modules/cascada-engine/docs/cascada/cascada-agent.md](./node_modules/cascada-engine/docs/cascada/cascada-agent.md)
+[../cascada/docs/cascada/cascada-agent.md](../cascada/docs/cascada/cascada-agent.md)
 
 If the compressed Cascada reference is missing, or if syntax or semantics are unclear or contradictory, check the source docs:
 [./node_modules/cascada-engine/docs/cascada/script.md](./node_modules/cascada-engine/docs/cascada/script.md)
 [./node_modules/cascada-engine/docs/cascada/template.md](./node_modules/cascada-engine/docs/cascada/template.md)
+[../cascada/docs/cascada/script.md](../cascada/docs/cascada/script.md)
+[../cascada/docs/cascada/template.md](../cascada/docs/cascada/template.md)
 
 The installed package docs are also be available:
 [./node_modules/cascada-engine/dist/docs/README.md](./node_modules/cascada-engine/dist/docs/README.md)
@@ -119,7 +125,12 @@ Schemas ensure reliability and safety.
 
 Follow established idioms:
 
-* Use `@data`, `capture :data`, `is error`
+* Prefer `return` with plain values: `return answer`, `return { answer: answer }`, etc.
+* Prefer regular `var` values and object/array literals for simple intermediate data.
+* Do not create intermediate variables solely to populate a return object; return expressions can read component results directly when that stays clear.
+* Use `data` / `text` channels with `.snapshot()` only when you need ordered assembly from concurrent loop writes or text accumulation.
+* Do not use legacy `@data`, `@text`, `:data`, `:text`, `capture`, or script-level `include`.
+* Use `is error` / `is not error` for safe error handling.
 * Keep parallel loops parallel unless strict ordering is required
 * Never mix JS async control primitives inside Cascada Script workflows
 
@@ -164,8 +175,8 @@ This list is **not** about agentic patterns; it is specifically about:
 
 * **Strictly linear script** with no loops or conditionals.
   Good reference when you want a clean, synchronous dataflow.
-* **Basic `@data` population**
-  Shows how to populate output fields from a script.
+* **Direct object return**
+  Shows how to return a structured value without channels.
 
 **Use this example when you need to reference:**
 
@@ -225,7 +236,7 @@ This is the most complete reference for **Casai + Cascada together**.
 **Cascada Script usage illustrated:**
 
 * **Parallel `for` loops** as primary orchestration mechanism.
-* **`capture :data` blocks** to accumulate outputs from parallel steps.
+* **`data` channels and `.snapshot()`** to accumulate ordered outputs from parallel steps.
 * **Error flow control using `is error`** to skip failing items.
 * **Nested parallelism**: parallel markets -> parallel stocks.
 * **Combining JS functions in script context**
@@ -236,7 +247,7 @@ This is the most complete reference for **Casai + Cascada together**.
 * How to do parallel execution in Cascada Script.
 * How to integrate external APIs inside Cascada loops.
 * How to build complex LLM workflows with typed schemas and templates.
-* How to use `capture :data`, `is error`, and multi-step data assembly.
+* How to use `data` channels, `.snapshot()`, `is error`, and multi-step data assembly.
 
 This example is the **primary reference** for:
 
