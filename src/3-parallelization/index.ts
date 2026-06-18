@@ -241,7 +241,7 @@ const stockAnalysisAgent = create.Script({
 console.log('PARALLELIZATION PATTERN EXAMPLE\nDemonstrates automatic parallel execution through simple for loops.\n');
 console.log('Disclaimer: This analysis is for educational purposes only and does not constitute financial advice.\n');
 
-const result = await stockAnalysisAgent() as types.StockAnalysisResult;
+const result = await stockAnalysisAgent();
 
 // Format and print output using template
 const output = await outputTemplate(result);
