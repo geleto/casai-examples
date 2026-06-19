@@ -16,6 +16,12 @@ You are given:
 Your task:
 - Write a single, syntactically valid SQLite SELECT query that best satisfies the data request.
 - Only use tables and columns that appear in the schema summary.
+- Use the exact table and column names from the schema summary.
+- Use SQLite syntax only; avoid functions from other databases.
+- Do not use `PERCENTILE_CONT`, `PERCENTILE_DISC`, or `WITHIN GROUP`; they are not portable SQLite syntax.
+- For value tiers or quartiles, use SQLite window functions such as `NTILE(4) OVER (ORDER BY metric)` or `ROW_NUMBER()` plus counts.
+- With `UNION` or `UNION ALL`, order only by output columns/aliases, or wrap the union in a subquery.
+- Do not put `ORDER BY` or `LIMIT` inside individual `UNION` branches unless that branch is wrapped as a subquery.
 - Prefer reasonably small result sets suitable for previews (use LIMIT when appropriate).
 - If the dashboard element type is `insight`, the query result will feed a data-backed insight card:
   - Return compact aggregate or ranked evidence, not broad raw rows.

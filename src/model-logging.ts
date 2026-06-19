@@ -42,6 +42,7 @@ interface ModelCallStats {
 	failed: number;
 	active: number;
 	maxActive: number;
+	totalDurationMs: number;
 	inputTokens: number;
 	outputTokens: number;
 }
@@ -49,6 +50,8 @@ interface ModelCallStats {
 const modelStats = new Map<string, ModelCallStats>();
 let totalActiveCalls = 0;
 let maxTotalActiveCalls = 0;
+let firstCallStartTime: number | undefined;
+let lastCallEndTime: number | undefined;
 let summaryLoggerRegistered = false;
 let summaryPrinted = false;
 
@@ -61,6 +64,7 @@ function getModelStats(modelName: string): ModelCallStats {
 			failed: 0,
 			active: 0,
 			maxActive: 0,
+			totalDurationMs: 0,
 			inputTokens: 0,
 			outputTokens: 0,
 		};
@@ -89,6 +93,10 @@ function formatTokenUsage(inputTokens: number, outputTokens: number) {
 	return `${totalTokens.toLocaleString()} tokens (${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out)`;
 }
 
+function formatSeconds(ms: number) {
+	return `${(ms / 1000).toFixed(2)}s`;
+}
+
 function recordModelUsage(modelName: string, usage: LanguageModelV3Usage | undefined) {
 	const stats = getModelStats(modelName);
 	const { inputTokens, outputTokens } = getUsageCounts(usage);
@@ -105,13 +113,21 @@ function printModelStatsSummary() {
 	const statsEntries = Array.from(modelStats.entries());
 	const totalInputTokens = statsEntries.reduce((total, [, stats]) => total + stats.inputTokens, 0);
 	const totalOutputTokens = statsEntries.reduce((total, [, stats]) => total + stats.outputTokens, 0);
+	const totalDurationMs = statsEntries.reduce((total, [, stats]) => total + stats.totalDurationMs, 0);
+	const elapsedMs = firstCallStartTime && lastCallEndTime
+		? lastCallEndTime - firstCallStartTime
+		: 0;
+	const averageConcurrency = elapsedMs > 0 ? totalDurationMs / elapsedMs : 0;
 
 	process.stdout.write(`------\n[LLM] Max concurrent calls: ${maxTotalActiveCalls} total\n`);
+	process.stdout.write(
+		`[LLM] Concurrency speedup: ${averageConcurrency.toFixed(2)}x (${formatSeconds(totalDurationMs)} summed call time / ${formatSeconds(elapsedMs)} elapsed)\n`
+	);
 	process.stdout.write(`[LLM] Total tokens: ${formatTokenUsage(totalInputTokens, totalOutputTokens)}\n`);
 
 	statsEntries.forEach(([name, stats]) => {
 		process.stdout.write(
-			`[LLM] ${name}: max ${stats.maxActive}, calls ${stats.started}, tokens ${formatTokenUsage(stats.inputTokens, stats.outputTokens)}\n`
+			`[LLM] ${name}: max ${stats.maxActive}, calls ${stats.started}, time ${formatSeconds(stats.totalDurationMs)}, tokens ${formatTokenUsage(stats.inputTokens, stats.outputTokens)}\n`
 		);
 	});
 }
@@ -129,6 +145,7 @@ function registerSummaryLogger() {
 function startModelCall(modelName: string): number {
 	registerSummaryLogger();
 
+	firstCallStartTime ??= Date.now();
 	const stats = getModelStats(modelName);
 	stats.started++;
 	stats.active++;
@@ -140,8 +157,11 @@ function startModelCall(modelName: string): number {
 	return stats.active;
 }
 
-function finishModelCall(modelName: string, failed = false): number {
+function finishModelCall(modelName: string, failed = false, durationMs = 0): number {
 	const stats = getModelStats(modelName);
+	lastCallEndTime = Date.now();
+	stats.totalDurationMs += durationMs;
+
 	if (stats.active > 0) {
 		stats.active--;
 	}
@@ -393,7 +413,7 @@ export function withProgressIndicator(
 
 					const text = textParts.join(', ');
 					recordModelUsage(modelName, result.usage);
-					const activeCallsAfterFinish = finishModelCall(modelName);
+					const activeCallsAfterFinish = finishModelCall(modelName, false, Date.now() - startTime);
 					callFinished = true;
 
 					logCompletion(
@@ -409,7 +429,7 @@ export function withProgressIndicator(
 					return result;
 				} catch (error) {
 					if (!callFinished) {
-						finishModelCall(modelName, true);
+						finishModelCall(modelName, true, Date.now() - startTime);
 					}
 					throw error;
 				}
@@ -429,7 +449,7 @@ export function withProgressIndicator(
 				try {
 					streamResult = await doStream();
 				} catch (error) {
-					finishModelCall(modelName, true);
+					finishModelCall(modelName, true, Date.now() - startTime);
 					throw error;
 				}
 
@@ -450,7 +470,7 @@ export function withProgressIndicator(
 					}
 
 					callEnded = true;
-					return finishModelCall(modelName, failed);
+					return finishModelCall(modelName, failed, Date.now() - startTime);
 				};
 
 				const transformStream = new TransformStream<LanguageModelV3StreamPart, LanguageModelV3StreamPart>({

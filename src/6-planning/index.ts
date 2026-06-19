@@ -1,23 +1,24 @@
 /**
  * PLANNING PATTERN EXAMPLE: DASHBOARD GENERATOR
  *
- * Demonstrates an AI agent that creates a data dashboard by first planning the layout and data requirements, then executing that plan.
+ * Demonstrates an AI agent that creates a data dashboard by first planning
+ * the layout and data requirements, then executing that plan.
  *
  * HOW IT WORKS:
  * 1. Generate a schema summary by inspecting the SQLite database
- * 2. Analyze the user request and schema to plan the dashboard
- * 3. Planner Agent generates a structured list of dashboard elements (charts, KPIs)
- * 4. For each element, generate and execute SQL to fetch the necessary data
+ * 2. Analyze the user request and schema to plan dashboard elements
+ * 3. Planner Agent returns structured dashboard elements, with a header first
+ * 4. For each data-backed element, generate and execute SQL to fetch the needed data
  * 5. Insight elements are converted into concise data-backed HTML
- * 6. Generator Agent creates the HTML visualization using the plan and data
- * 7. Assemble the final dashboard with Bootstrap and Chart.js
+ * 6. Each element is rendered as an independent HTML/JS fragment
+ * 7. A deterministic composer arranges the fragments and adds shared helpers/data
  *
  * KEY CONCEPTS:
  * - Planning Pattern: Break complex tasks into structured steps
+ * - Structured Output: Use Zod schemas to enforce plan and render formats
  * - Tool Use: Dynamic SQL generation and database querying
- * - Structured Output: Using Zod schemas to enforce plan format
- * - Concurrency: SQL generation and data fetching for elements run in parallel
- * - Multi-step Chaining: Planner, data fetcher, and code generator
+ * - Concurrency: Element data fetching and rendering run in parallel
+ * - Composition: Small generated fragments are assembled by simple TypeScript
  */
 
 import { spawn } from 'child_process';
@@ -61,7 +62,7 @@ let dataPointCounter = 1;
 
 const dashboardElementSchema = z.object({
 	id: z.string().describe('Unique identifier for the element'),
-	type: z.enum(['chart', 'table', 'text', 'insight', 'kpi', 'other']).describe('Type of dashboard element'),
+	type: z.enum(['header', 'chart', 'table', 'text', 'insight', 'kpi', 'other']).describe('Type of dashboard element'),
 	layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']).describe('Suggested layout width'),
 	title: z.string().describe('Display title for the element'),
 	description: z.string().describe('Brief description of what this element shows'),
@@ -69,14 +70,74 @@ const dashboardElementSchema = z.object({
 	dataRequest: z.string().optional().describe('Natural language description of needed data (if usesData is true)'),
 });
 
-type DashboardElement = z.infer<typeof dashboardElementSchema> & {
-	dataFile?: string;
-	previewJson?: string;
-	contentHtml?: string;
-};
+const renderedElementSchema = z.object({
+	id: z.string(),
+	type: z.enum(['header', 'chart', 'table', 'text', 'insight', 'kpi', 'other']),
+	layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']),
+	html: z.string().describe('HTML fragment with no row/column wrapper'),
+	script: z.string().describe('Raw JavaScript statements to run inside an existing DOMContentLoaded listener. Use an empty string if none.'),
+});
+
+const processedElementSchema = dashboardElementSchema.extend({
+	dataKey: z.string().optional(),
+	previewJson: z.string().optional(),
+	contentHtml: z.string().optional(),
+});
+
+const processedDashboardSchema = z.object({
+	elements: z.array(processedElementSchema),
+	renderedElements: z.array(renderedElementSchema),
+});
+
+type RenderedElement = z.infer<typeof renderedElementSchema>;
+interface LayoutElement {
+	id: string;
+	type: RenderedElement['type'];
+	columnClass: string;
+	html: string;
+	script: string;
+	idJson: string;
+}
+
+function columnClass(element: RenderedElement, kpiIndex: number, kpiCount: number, contentIndex: number, contentCount: number): string {
+	if (element.type == 'header') return 'col-12';
+	if (element.type != 'kpi') {
+		const isLastOddItem = contentIndex == contentCount - 1 && (contentCount - 1) % 2 == 1;
+		return contentIndex == 0 || isLastOddItem ? 'col-12' : 'col-12 col-lg-6';
+	}
+	if (kpiCount == 2 || kpiCount == 4 || (kpiCount == 5 && kpiIndex < 2)) {
+		return 'col-12 col-md-6';
+	}
+	return kpiCount > 5 ? 'col-12 col-md-6 col-xl-4' : 'col-12 col-md-4';
+}
+
+function layoutElements(elements: RenderedElement[]): LayoutElement[] {
+	const kpiCount = elements.filter(element => element.type == 'kpi').length;
+	const contentCount = elements.filter(element => element.type != 'header' && element.type != 'kpi').length;
+	let kpiIndex = 0, contentIndex = 0;
+	return elements.map(element => {
+		const column = columnClass(element, kpiIndex, kpiCount, contentIndex, contentCount);
+		if (element.type == 'kpi') kpiIndex++;
+		else if (element.type != 'header') contentIndex++;
+		return {
+			id: element.id,
+			type: element.type,
+			columnClass: column,
+			html: element.html,
+			script: element.script.trim().replace(/<\/script/gi, '<\\/script'),
+			idJson: JSON.stringify(element.id),
+		};
+	}).sort((a, b) => layoutPriority(a) - layoutPriority(b));
+}
+
+function layoutPriority(element: LayoutElement): number {
+	if (element.type == 'header') return 0;
+	if (element.type == 'kpi') return 1;
+	return 2;
+}
 
 // ---------------------------------------------------------------------------
-// Planner LLM - Generate dashboard plan
+// Planner LLM - creates the structured dashboard element plan.
 // ---------------------------------------------------------------------------
 const plannerAgent = create.ObjectGenerator.loadsTemplate({
 	model: advancedModel,
@@ -88,8 +149,7 @@ const plannerAgent = create.ObjectGenerator.loadsTemplate({
 });
 
 // ---------------------------------------------------------------------------
-// LLM-powered SQL generator. Takes a natural-language data request plus
-// schema/context and returns a single SQLite SELECT query as plain text.
+// SQL generator - turns each natural-language data request into SQLite.
 // ---------------------------------------------------------------------------
 const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 	model: advancedModel,
@@ -98,6 +158,9 @@ const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 	prompt: 'sql-generator.md',
 });
 
+// ---------------------------------------------------------------------------
+// Insight generator - turns query results into data-backed HTML text.
+// ---------------------------------------------------------------------------
 const textInsightGenerator = create.TextGenerator.loadsTemplate({
 	model: advancedModel,
 	providerOptions,
@@ -106,26 +169,23 @@ const textInsightGenerator = create.TextGenerator.loadsTemplate({
 });
 
 // ---------------------------------------------------------------------------
-// Generator LLM prompt - generate HTML body
+// Element renderer - renders one enriched element into HTML and JS.
 // ---------------------------------------------------------------------------
-const dashboardBodyGenerator = create.TextGenerator.loadsTemplate({
+const elementRenderer = create.ObjectGenerator.loadsTemplate({
 	model: basicModel,
 	providerOptions,
 	loader: templateLoader,
-	prompt: 'dashboard-generator.md',
+	prompt: 'element-renderer.md',
+	output: 'object',
+	schema: renderedElementSchema,
 });
 
 // ---------------------------------------------------------------------------
-// Cascada HTML/test wrapper templates
+// Templates - wrap the dashboard and summarize the DB schema.
 // ---------------------------------------------------------------------------
 const dashboardTemplate = create.Template.loadsTemplate({
 	loader: templateLoader,
 	template: 'dashboard-template.html',
-});
-
-const planTemplate = create.Template.loadsTemplate({
-	loader: templateLoader,
-	template: 'dashboard-plan-template.md',
 });
 
 const schemaSummaryTemplate = create.Template.loadsTemplate({
@@ -134,15 +194,13 @@ const schemaSummaryTemplate = create.Template.loadsTemplate({
 });
 
 // ---------------------------------------------------------------------------
-// For each data dashboard element - add relevant data from the database
+// Element processor - fetches data, creates insights, and renders cards.
 // ---------------------------------------------------------------------------
 const elementProcessor = create.Script({
 	context: {
 		sqlFromRequestGenerator,
 		textInsightGenerator,
-		executeSql: (sql: string, database: Database) => {
-			return database.executeSql(sql);
-		},
+		elementRenderer,
 		generatePreviewJson: (rows: any[], rowLimit = 5) => {
 			if (!Array.isArray(rows)) {
 				return JSON.stringify([rows], null, 2);
@@ -162,17 +220,15 @@ const elementProcessor = create.Script({
 			collectedData[dataKey] = rows;
 			return dataKey;
 		},
+		toJson: (value: unknown) => JSON.stringify(value, null, 2),
 		datasetDescription: input.datasetDescription,
 		datasetName: input.datasetName,
 		userRequest: input.userRequest,
 	},
-	schema: z.array(dashboardElementSchema.extend({
-		dataFile: z.string().optional(),
-		previewJson: z.string().optional(),
-		contentHtml: z.string().optional(),
-	})),
+	schema: processedDashboardSchema,
 	script: `
 		data processedElements = []
+		data renderedElements = []
 		for element in elements
 			if element.usesData and element.dataRequest
 				var sqlResult = sqlFromRequestGenerator({
@@ -181,9 +237,9 @@ const elementProcessor = create.Script({
 					elementType: element.type,
 					dataRequest: element.dataRequest
 				}).text
-				var rows = executeSql(sqlResult, database)
+				var rows = database.executeSql(sqlResult)
 				element.previewJson = generatePreviewJson(rows)
-				element.dataFile = saveData(rows, database)
+				element.dataKey = saveData(rows, database)
 				if element.type == "insight"
 					element.contentHtml = textInsightGenerator({
 						datasetName: datasetName,
@@ -197,13 +253,17 @@ const elementProcessor = create.Script({
 				endif
 			endif
 			processedElements.push(element)
+			var renderedElement = elementRenderer({
+				elementJson: toJson(element)
+			}).object
+			renderedElements.push(renderedElement)
 		endfor
-		return processedElements.snapshot()`
+		return {
+			elements: processedElements.snapshot(),
+			renderedElements: renderedElements.snapshot()
+		}`
 });
 
-// ---------------------------------------------------------------------------
-// Execution entrypoint
-// ---------------------------------------------------------------------------
 console.log('PLANNING PATTERN EXAMPLE\nDemonstrates an AI agent that creates a data dashboard by first planning the layout and data requirements, then executing that plan.\n');
 console.log(`User request: ${input.userRequest}\n Dataset: ${input.datasetName}`);
 
@@ -218,42 +278,37 @@ try {
 	const schemaSummary = await schemaSummaryTemplate(schemaMetadata);
 	console.log(`\n=== Schema Summary ===\n${schemaSummary}`);
 
-	// 5. Run planner with structured output
-	console.log('\nRunning planner LLM (Structured Output)...\n');
-	const planResult = await plannerAgent({
+	// 4. Run planner with structured output
+	console.log('\nRunning planner agent (Structured Output)...\n');
+	const elements = (await plannerAgent({
 		datasetName: input.datasetName,
 		datasetDescription: input.datasetDescription,
 		userRequest: input.userRequest,
 		schemaSummary,
-	});
-	const elements = planResult.object;
+	})).object;
+	if (elements[0]?.type != 'header') {
+		throw new Error('Planner must return a header element first.');
+	}
 	console.log(`\nPlanner returned ${elements.length} elements. Processing data requests...`);
 
-	// 6. Process elements (fetch data) using Cascada Script for concurrency
-	const processedElements = await elementProcessor({ elements, database, schemaSummary }) as DashboardElement[];
+	// 5. Process elements: fetch data, generate insights, and render each card
+	const processedDashboard = await elementProcessor({ elements, database, schemaSummary }) as z.infer<typeof processedDashboardSchema>;
 
-	// 7. Generate Plan Text using Template
-	const overallIntent = `- User Request: ${input.userRequest}`;
-	const planText = await planTemplate({
-		overallIntent,
-		elements: processedElements
+	// 6. Log a compact plan summary
+	console.log('\n=== DASHBOARD PLAN ===');
+	for (const element of processedDashboard.elements) {
+		console.log(`${element.type}: ${element.title}`);
+	}
+
+	// 7. Compose final dashboard body
+	console.log('\nComposing dashboard...\n');
+
+	// 8. Wrap, save, and open final HTML
+	const finalHtml = await dashboardTemplate({
+		title: elements[0].title,
+		elements: layoutElements(processedDashboard.renderedElements),
+		dataJson: JSON.stringify(collectedData),
 	});
-	console.log(`\n=== DASHBOARD PLAN ===\n${planText}`);
-
-	// 6. Run generator
-	console.log('\nRunning generator LLM...\n');
-	const bodyResult = await dashboardBodyGenerator({
-		datasetName: input.datasetName,
-		datasetDescription: input.datasetDescription,
-		userRequest: input.userRequest,
-		schemaSummary,
-		plan: planText,
-	});
-	const bodyHtml = bodyResult.text;
-
-	// 7. Wrap and save final HTML
-	const dataScript = `<script>window.dashboardData = ${JSON.stringify(collectedData)};</script>`;
-	const finalHtml = await dashboardTemplate({ bodyHtml, dataScript });
 	writeFileSync(OUTPUT_HTML, finalHtml, 'utf-8');
 	const dashboardUrl = pathToFileURL(OUTPUT_HTML).href;
 	console.log('\nDashboard written to:', OUTPUT_HTML);
