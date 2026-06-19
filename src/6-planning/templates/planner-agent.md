@@ -23,6 +23,9 @@ Output:
 - **Balance**:
   - Prefer 2-5 KPI cards, 2-4 charts, 1-2 tables, 1-2 insight cards, and at most 1 static text guide.
   - Do not let insight or text elements crowd out core visualizations.
+- **Charts**:
+  - Only plan distribution/histogram charts when the data can produce multiple meaningful buckets.
+  - If a distribution is likely to collapse into one bucket, use a ranked chart, table, or KPI instead.
 - **Data**: `dataRequest` must be a clear natural-language description of *what* data to fetch (e.g., "Daily sales revenue for the last 30 days").
 - **Insights**:
   - You may create `type: "insight"` elements for conclusions, recommendations, executive summaries, or "what to do next" sections.
