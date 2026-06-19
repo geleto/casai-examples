@@ -174,7 +174,6 @@ const elementProcessor = create.Script({
 	script: `
 		data processedElements = []
 		for element in elements
-			var processedElement = element
 			if element.usesData and element.dataRequest
 				var sqlResult = sqlFromRequestGenerator({
 					datasetDescription: datasetDescription,
@@ -183,10 +182,10 @@ const elementProcessor = create.Script({
 					dataRequest: element.dataRequest
 				}).text
 				var rows = executeSql(sqlResult, database)
-				processedElement.previewJson = generatePreviewJson(rows)
-				processedElement.dataFile = saveData(rows, database)
+				element.previewJson = generatePreviewJson(rows)
+				element.dataFile = saveData(rows, database)
 				if element.type == "insight"
-					processedElement.contentHtml = textInsightGenerator({
+					element.contentHtml = textInsightGenerator({
 						datasetName: datasetName,
 						datasetDescription: datasetDescription,
 						userRequest: userRequest,
@@ -197,7 +196,7 @@ const elementProcessor = create.Script({
 					}).text
 				endif
 			endif
-			processedElements.push(processedElement)
+			processedElements.push(element)
 		endfor
 		return processedElements.snapshot()`
 });
