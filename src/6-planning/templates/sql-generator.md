@@ -20,6 +20,8 @@ Your task:
 - Use SQLite syntax only; avoid functions from other databases.
 - Do not use `PERCENTILE_CONT`, `PERCENTILE_DISC`, or `WITHIN GROUP`; they are not portable SQLite syntax.
 - For value tiers or quartiles, use SQLite window functions such as `NTILE(4) OVER (ORDER BY metric)` or `ROW_NUMBER()` plus counts.
+- Do not use window functions in `WHERE`, `GROUP BY`, or `HAVING`. Compute window values in a CTE/subquery, then filter them in an outer `SELECT`.
+- When using `GROUP BY`, every selected column must either be grouped or aggregated.
 - With `UNION` or `UNION ALL`, order only by output columns/aliases, or wrap the union in a subquery.
 - Do not put `ORDER BY` or `LIMIT` inside individual `UNION` branches unless that branch is wrapped as a subquery.
 - Prefer reasonably small result sets suitable for previews (use LIMIT when appropriate).

@@ -16,13 +16,12 @@ Your job:
 
 Output:
 - A structured list of dashboard elements.
-- **Header**: The first element must be `type: "header"`, `id: "dashboard-header"`, `layoutHint: "full-width"`, and `usesData: false`.
+- **Header**: The first element must be `type: "header"`, `id: "dashboard-header"`, and `usesData: false`.
   - Use the header `title` as the dashboard title.
   - Use the header `description` as a one-sentence subtitle explaining how to use the dashboard.
   - Do not put data findings, rankings, recommendations, or unsupported conclusions in the header.
 - **KPIs**: Place important KPI cards immediately after the header so the renderer can group them near the top.
   - Prefer 2-5 KPI cards.
-  - Use `layoutHint: "half-width"` when there are 2 or 4 KPIs; otherwise use `layoutHint: "third-width"`.
   - Only create 6 or more KPIs when the user explicitly asks for many metrics.
 - **Balance**:
   - Prefer 2-5 KPI cards, 2-4 charts, 1-2 tables, 1-2 insight cards, and at most 1 static text guide.
@@ -47,8 +46,5 @@ Output:
   - Static text may provide orientation, metric definitions, methodology notes, caveats, section introductions, or instructions for reading the dashboard.
   - Static text must not claim findings, recommendations, rankings, trends, or conclusions from the data.
 - Do not create placeholder elements such as "recommendations will appear later", "insights pending", or "analysis unavailable".
-- **Layout**: Use `layoutHint` to create a balanced design.
-  - Use 'full-width' for main charts or complex tables.
-  - Use 'half-width' or 'third-width' for secondary metrics or smaller charts.
 - **Variety**: Use a mix of visualization types (charts, tables, text) where appropriate.
 - Do NOT generate HTML, JavaScript, or SQL.

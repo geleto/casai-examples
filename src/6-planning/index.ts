@@ -63,7 +63,6 @@ let dataPointCounter = 1;
 const dashboardElementSchema = z.object({
 	id: z.string().describe('Unique identifier for the element'),
 	type: z.enum(['header', 'chart', 'table', 'text', 'insight', 'kpi', 'other']).describe('Type of dashboard element'),
-	layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']).describe('Suggested layout width'),
 	title: z.string().describe('Display title for the element'),
 	description: z.string().describe('Brief description of what this element shows'),
 	usesData: z.boolean().describe('Whether this element requires data fetching'),
@@ -73,7 +72,6 @@ const dashboardElementSchema = z.object({
 const renderedElementSchema = z.object({
 	id: z.string(),
 	type: z.enum(['header', 'chart', 'table', 'text', 'insight', 'kpi', 'other']),
-	layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']),
 	html: z.string().describe('HTML fragment with no row/column wrapper'),
 	script: z.string().describe('Raw JavaScript statements to run inside an existing DOMContentLoaded listener. Use an empty string if none.'),
 });

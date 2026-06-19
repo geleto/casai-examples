@@ -413,7 +413,8 @@ export function withProgressIndicator(
 
 					const text = textParts.join(', ');
 					recordModelUsage(modelName, result.usage);
-					const activeCallsAfterFinish = finishModelCall(modelName, false, Date.now() - startTime);
+					const durationMs = Date.now() - startTime;
+					const activeCallsAfterFinish = finishModelCall(modelName, false, durationMs);
 					callFinished = true;
 
 					logCompletion(
@@ -429,7 +430,8 @@ export function withProgressIndicator(
 					return result;
 				} catch (error) {
 					if (!callFinished) {
-						finishModelCall(modelName, true, Date.now() - startTime);
+						const durationMs = Date.now() - startTime;
+						finishModelCall(modelName, true, durationMs);
 					}
 					throw error;
 				}
@@ -449,7 +451,8 @@ export function withProgressIndicator(
 				try {
 					streamResult = await doStream();
 				} catch (error) {
-					finishModelCall(modelName, true, Date.now() - startTime);
+					const durationMs = Date.now() - startTime;
+					finishModelCall(modelName, true, durationMs);
 					throw error;
 				}
 
@@ -470,7 +473,9 @@ export function withProgressIndicator(
 					}
 
 					callEnded = true;
-					return finishModelCall(modelName, failed, Date.now() - startTime);
+					const durationMs = Date.now() - startTime;
+					const activeCalls = finishModelCall(modelName, failed, durationMs);
+					return activeCalls;
 				};
 
 				const transformStream = new TransformStream<LanguageModelV3StreamPart, LanguageModelV3StreamPart>({
