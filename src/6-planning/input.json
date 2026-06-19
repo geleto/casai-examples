@@ -1,5 +1,5 @@
 {
-	"userRequest": "Create a sales analytics dashboard",
+	"userRequest": "I need to know how to improve our sales",
 	"datasetName": "chinook",
 	"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
 	"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
