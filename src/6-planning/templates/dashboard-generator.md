@@ -37,11 +37,13 @@ Requirements for the generated HTML:
   - If type=chart, create a <div style="position: relative; height: 300px; width: 100%;"><canvas></canvas></div> inside a Bootstrap card.
     - CRITICAL: The wrapper div with fixed height is REQUIRED to prevent Chart.js from entering an infinite resizing loop.
   - If type=table, create a <table class="table table-striped table-sm"> inside a card.
-  - If type=text or kpi, create a card with appropriate headings and text.
+  - If type=kpi, create a card with appropriate headings and text.
+  - If type=insight, create a card with appropriate headings and render the "Generated content HTML" fragment exactly inside the card body after the title/description.
+  - If type=text, create a card with appropriate headings and static explanatory content. Text elements may provide orientation, metric definitions, methodology notes, caveats, section introductions, or instructions for reading the dashboard, but must not claim data-derived findings or recommendations.
 - Use the title and description from the plan for each card.
 
 3) Data fetching & Chart.js
-- For each element with usesData: true:
+- For each non-text, non-insight element with usesData: true:
   - Use a <script> at the end of the body to:
     - Wrap ALL code in "document.addEventListener('DOMContentLoaded', () => { ... });" to ensure the data at the bottom of the file is loaded before execution.
     - Access the data via window.dashboardData[dataKey] (where dataKey is the 'dataFile' value from the plan).
@@ -55,6 +57,8 @@ Requirements for the generated HTML:
     - Find the element by ID or class and update its text content with the value.
     - Format the number appropriately (currency, large numbers, etc.).
 - You may define small helper functions in JavaScript inside the <script> block to group/summarize data.
+- For `type=insight` elements, do not write JavaScript. Data-backed insight text has already been generated as content HTML.
+- For `type=text` elements, do not write JavaScript. Text elements are static explanatory content only.
 
 4) Styling & UX
 - Use headings (e.g., <h1>, <h2>) to label the dashboard.
@@ -64,6 +68,9 @@ Requirements for the generated HTML:
 Important:
 - Do NOT include <html>, <head>, <link>, or <script src="..."> tags for libraries.
 - Do NOT include any mock data.
+- Do NOT invent conclusions, recommendations, or action items that are not present in Generated content HTML.
+- Every `type=insight` element must render its Generated content HTML; if it is missing, omit the insight body rather than inventing one.
+- Never output placeholder analysis text such as "recommendations will appear after analysis", "insights pending", or "data-driven insights are not provided".
 - Assume Bootstrap 5 CSS, Chart.js, and any helper scripts are already included by the outer wrapper.
 
 Return only the <body>...</body> element.

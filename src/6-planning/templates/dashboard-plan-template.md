@@ -23,5 +23,12 @@ Preview JSON:
 ```json
 {{ element.previewJson }}
 ```
+{% if element.contentHtml %}
+
+Generated content HTML:
+```html
+{{ element.contentHtml }}
+```
+{% endif %}
 {% endif %}
 {% endfor %}

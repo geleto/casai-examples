@@ -8,8 +8,9 @@
  * 2. Analyze the user request and schema to plan the dashboard
  * 3. Planner Agent generates a structured list of dashboard elements (charts, KPIs)
  * 4. For each element, generate and execute SQL to fetch the necessary data
- * 5. Generator Agent creates the HTML visualization using the plan and data
- * 6. Assemble the final dashboard with Bootstrap and Chart.js
+ * 5. Insight elements are converted into concise data-backed HTML
+ * 6. Generator Agent creates the HTML visualization using the plan and data
+ * 7. Assemble the final dashboard with Bootstrap and Chart.js
  *
  * KEY CONCEPTS:
  * - Planning Pattern: Break complex tasks into structured steps
@@ -60,7 +61,7 @@ let dataPointCounter = 1;
 
 const dashboardElementSchema = z.object({
 	id: z.string().describe('Unique identifier for the element'),
-	type: z.enum(['chart', 'table', 'text', 'kpi', 'other']).describe('Type of dashboard element'),
+	type: z.enum(['chart', 'table', 'text', 'insight', 'kpi', 'other']).describe('Type of dashboard element'),
 	layoutHint: z.enum(['full-width', 'half-width', 'third-width', 'auto']).describe('Suggested layout width'),
 	title: z.string().describe('Display title for the element'),
 	description: z.string().describe('Brief description of what this element shows'),
@@ -71,6 +72,7 @@ const dashboardElementSchema = z.object({
 type DashboardElement = z.infer<typeof dashboardElementSchema> & {
 	dataFile?: string;
 	previewJson?: string;
+	contentHtml?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -94,6 +96,13 @@ const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 	providerOptions,
 	loader: templateLoader,
 	prompt: 'sql-generator.md',
+});
+
+const textInsightGenerator = create.TextGenerator.loadsTemplate({
+	model: advancedModel,
+	providerOptions,
+	loader: templateLoader,
+	prompt: 'text-insight-generator.md',
 });
 
 // ---------------------------------------------------------------------------
@@ -130,20 +139,21 @@ const schemaSummaryTemplate = create.Template.loadsTemplate({
 const elementProcessor = create.Script({
 	context: {
 		sqlFromRequestGenerator,
+		textInsightGenerator,
 		executeSql: (sql: string, database: Database) => {
 			return database.executeSql(sql);
 		},
-		generatePreviewJson: (rows: any[]) => {
+		generatePreviewJson: (rows: any[], rowLimit = 5) => {
 			if (!Array.isArray(rows)) {
 				return JSON.stringify([rows], null, 2);
-			} else if (rows.length <= 5) {
+			} else if (rows.length <= rowLimit) {
 				return JSON.stringify(rows, null, 2);
 			} else {
-				const truncated = rows.slice(0, 3);
+				const truncated = rows.slice(0, rowLimit);
 				const json = JSON.stringify(truncated, null, 2);
 				return json.replace(
 					/\n\]$/,
-					`,\n   ... ${rows.length - 3} more items\n]`
+					`,\n   ... ${rows.length - rowLimit} more items\n]`
 				);
 			}
 		},
@@ -153,10 +163,13 @@ const elementProcessor = create.Script({
 			return dataKey;
 		},
 		datasetDescription: input.datasetDescription,
+		datasetName: input.datasetName,
+		userRequest: input.userRequest,
 	},
 	schema: z.array(dashboardElementSchema.extend({
 		dataFile: z.string().optional(),
 		previewJson: z.string().optional(),
+		contentHtml: z.string().optional(),
 	})),
 	script: `
 		data processedElements = []
@@ -166,11 +179,23 @@ const elementProcessor = create.Script({
 				var sqlResult = sqlFromRequestGenerator({
 					datasetDescription: datasetDescription,
 					schemaSummary: schemaSummary,
+					elementType: element.type,
 					dataRequest: element.dataRequest
 				}).text
 				var rows = executeSql(sqlResult, database)
 				processedElement.previewJson = generatePreviewJson(rows)
 				processedElement.dataFile = saveData(rows, database)
+				if element.type == "insight"
+					processedElement.contentHtml = textInsightGenerator({
+						datasetName: datasetName,
+						datasetDescription: datasetDescription,
+						userRequest: userRequest,
+						title: element.title,
+						description: element.description,
+						dataRequest: element.dataRequest,
+						jsonExcerpt: generatePreviewJson(rows, 25)
+					}).text
+				endif
 			endif
 			processedElements.push(processedElement)
 		endfor
