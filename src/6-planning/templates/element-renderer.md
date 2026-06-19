@@ -25,9 +25,9 @@ Rules:
 - For `header`: render a richer page header, not a card. Use one root `<header ...>` or `<div ...>`, use the element title as the main heading, the description as supporting copy, and `script: ""`. Do not include data findings or recommendations.
 - For `chart`: include a fixed-height canvas wrapper: `<div style="position: relative; height: 300px; width: 100%;"><canvas ...></canvas></div>`. Script must create a Chart with `responsive: true` and `maintainAspectRatio: false`.
 - If a chart's `previewJson` has fewer than 2 rows, do not render a Chart.js chart; render the values as a compact KPI/table-style card instead.
-- For `table`: include a table with `<tbody>` and script that fills rows from `getData(dataKey)`.
+- For `table`: include a table with `<tbody>` and script that fills rows from `getData("<element id>")`.
 - For `kpi`: use this visual hierarchy: title first as `<h6 class="card-title fw-semibold mb-1">`, description second as muted small text, value third as the largest/boldest text. Never bold the description, make it larger than the title, or place it where it reads as the heading. Do not add decorative icons.
-- KPI script must read the first row from `getData(dataKey)` and update a visible placeholder whose id ends with `-value`.
+- KPI script must read the first row from `getData("<element id>")` and update a visible placeholder whose id ends with `-value`.
 - Numeric KPI values must use class `kpi-value-number`; the dashboard template controls their size.
 - If a KPI has both a category/name and a numeric measure, put the numeric measure in the `-value` placeholder with `kpi-value-number`, and put the category/name in a small muted `-label` placeholder. Do not join them with a dash.
 - Do not use inline font-size styles for KPI values.

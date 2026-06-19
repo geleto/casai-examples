@@ -57,9 +57,6 @@ function openInBrowser(url: string): void {
 	child.unref();
 }
 
-const collectedData: Record<string, unknown> = {};
-let dataPointCounter = 1;
-
 const dashboardElementSchema = z.object({
 	id: z.string().describe('Unique identifier for the element'),
 	type: z.enum(['header', 'chart', 'table', 'text', 'insight', 'kpi', 'other']).describe('Type of dashboard element'),
@@ -87,27 +84,29 @@ const renderedElementSchema = z.object({
 });
 
 const processedElementSchema = dashboardElementSchema.extend({
-	dataKey: z.string().optional(),
 	previewJson: z.string().optional(),
 	contentHtml: z.string().optional(),
+	rows: z.array(z.any()).optional(),
+	html: z.string(),
+	script: z.string(),
 });
 
 const processedDashboardSchema = z.object({
 	elements: z.array(processedElementSchema),
-	renderedElements: z.array(renderedElementSchema),
 });
 
-type RenderedElement = z.infer<typeof renderedElementSchema>;
+type ProcessedElement = z.infer<typeof processedElementSchema>;
 interface LayoutElement {
 	id: string;
-	type: RenderedElement['type'];
+	type: ProcessedElement['type'];
 	columnClass: string;
 	htmlJson: string;
 	script: string;
 	idJson: string;
+	dataJson?: string;
 }
 
-function columnClass(element: RenderedElement, kpiIndex: number, kpiCount: number, contentIndex: number, contentCount: number): string {
+function columnClass(element: ProcessedElement, kpiIndex: number, kpiCount: number, contentIndex: number, contentCount: number): string {
 	if (element.type == 'header') return 'col-12';
 	if (element.type != 'kpi') {
 		const isLastOddItem = contentIndex == contentCount - 1 && (contentCount - 1) % 2 == 1;
@@ -119,27 +118,31 @@ function columnClass(element: RenderedElement, kpiIndex: number, kpiCount: numbe
 	return kpiCount > 5 ? 'col-12 col-md-6 col-xl-4' : 'col-12 col-md-4';
 }
 
-function layoutElements(elements: RenderedElement[]): LayoutElement[] {
-	const orderedElements = [...elements].sort((a, b) => layoutPriority(a) - layoutPriority(b));
-	const kpiCount = orderedElements.filter(element => element.type == 'kpi').length;
-	const contentCount = orderedElements.filter(element => element.type != 'header' && element.type != 'kpi').length;
+function layoutElements(elements: ProcessedElement[]): LayoutElement[] {
+	const kpiCount = elements.filter(element => element.type == 'kpi').length;
+	const contentCount = elements.filter(element => element.type != 'header' && element.type != 'kpi').length;
 	let kpiIndex = 0, contentIndex = 0;
-	return orderedElements.map(element => {
-		const column = columnClass(element, kpiIndex, kpiCount, contentIndex, contentCount);
-		if (element.type == 'kpi') kpiIndex++;
-		else if (element.type != 'header') contentIndex++;
-		return {
-			id: element.id,
-			type: element.type,
-			columnClass: column,
-			htmlJson: safeScriptText(JSON.stringify(element.html)),
-			script: safeScriptText(element.script.trim()),
-			idJson: safeScriptText(JSON.stringify(element.id)),
-		};
-	});
+	return [...elements]
+		.sort((a, b) => layoutPriority(a) - layoutPriority(b))
+		.map(element => {
+			const column = columnClass(element, kpiIndex, kpiCount, contentIndex, contentCount);
+			if (element.type == 'kpi') kpiIndex++;
+			else if (element.type != 'header') contentIndex++;
+			return {
+				id: element.id,
+				type: element.type,
+				columnClass: column,
+				htmlJson: safeScriptText(JSON.stringify(element.html)),
+				script: safeScriptText(element.script.trim()),
+				idJson: safeScriptText(JSON.stringify(element.id)),
+				dataJson: element.usesData && element.rows
+					? safeScriptText(`${JSON.stringify(element.id)}: ${JSON.stringify(element.rows)}`)
+					: undefined,
+			};
+		});
 }
 
-function layoutPriority(element: { type: RenderedElement['type'] }): number {
+function layoutPriority(element: { type: ProcessedElement['type'] }): number {
 	return {
 		header: 0, kpi: 1, chart: 2, table: 3, insight: 4, text: 5, other: 6,
 	}[element.type];
@@ -244,11 +247,6 @@ const dashboardProcessor = create.Script({
 				);
 			}
 		},
-		saveData: (rows: any[], database: Database) => {
-			const dataKey = `${database.datasetName}_${dataPointCounter++}`;
-			collectedData[dataKey] = rows;
-			return dataKey;
-		},
 		toJson: (value: unknown) => JSON.stringify(value, null, 2),
 		datasetDescription: input.datasetDescription,
 		datasetName: input.datasetName,
@@ -257,6 +255,7 @@ const dashboardProcessor = create.Script({
 	schema: processedDashboardSchema,
 	script: `
 		function processElement(element)
+			var rows = []
 			if element.usesData and element.dataRequest
 				var sqlResult = sqlFromRequestGenerator({
 					datasetDescription: datasetDescription,
@@ -264,9 +263,8 @@ const dashboardProcessor = create.Script({
 					elementType: element.type,
 					dataRequest: element.dataRequest
 				}).text
-				var rows = database.executeSql(sqlResult)
+				rows = database.executeSql(sqlResult)
 				element.previewJson = generatePreviewJson(rows)
-				element.dataKey = saveData(rows, database)
 				if element.type == "insight"
 					element.contentHtml = textInsightGenerator({
 						datasetName: datasetName,
@@ -282,10 +280,10 @@ const dashboardProcessor = create.Script({
 			var renderedElement = elementRenderer({
 				elementJson: toJson(element)
 			}).object
-			return {
-				element: element,
-				renderedElement: renderedElement
-			}
+			element.rows = rows // attach now to avoid filling the render prompt with full data
+			element.html = renderedElement.html
+			element.script = renderedElement.script
+			return element
 		endfunction
 
 		var plannerInput = {
@@ -299,25 +297,17 @@ const dashboardProcessor = create.Script({
 		var insightsText = insightTextPlanner(plannerInput).object
 
 		data processedElements = []
-		data renderedElements = []
 		for element in headerKpis
-			var result = processElement(element)
-			processedElements.push(result.element)
-			renderedElements.push(result.renderedElement)
+			processedElements.push(processElement(element))
 		endfor
 		for element in chartsTables
-			var result = processElement(element)
-			processedElements.push(result.element)
-			renderedElements.push(result.renderedElement)
+			processedElements.push(processElement(element))
 		endfor
 		for element in insightsText
-			var result = processElement(element)
-			processedElements.push(result.element)
-			renderedElements.push(result.renderedElement)
+			processedElements.push(processElement(element))
 		endfor
 		return {
-			elements: processedElements.snapshot(),
-			renderedElements: renderedElements.snapshot()
+			elements: processedElements.snapshot()
 		}`
 });
 
@@ -355,8 +345,7 @@ try {
 	// 8. Wrap, save, and open final HTML
 	const finalHtml = await dashboardTemplate({
 		title: processedDashboard.elements[0].title,
-		elements: layoutElements(processedDashboard.renderedElements),
-		dataJson: JSON.stringify(collectedData),
+		elements: layoutElements(processedDashboard.elements),
 	});
 	writeFileSync(OUTPUT_HTML, finalHtml, 'utf-8');
 	const dashboardUrl = pathToFileURL(OUTPUT_HTML).href;
