@@ -22,5 +22,7 @@ Your task:
 
 HTML requirements:
 - Return only a small HTML fragment, not a full card, not a full document.
+- Start directly with an allowed HTML tag such as `<ul>` or `<p>`.
 - Allowed tags: `<p>`, `<ul>`, `<ol>`, `<li>`, `<strong>`, `<span>`.
+- Do not wrap the output in ```html fences.
 - Do not use Bootstrap classes, scripts, tables, charts, Markdown, code fences, or placeholder text.
