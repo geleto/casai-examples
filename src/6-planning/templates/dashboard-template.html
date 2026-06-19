@@ -51,7 +51,9 @@
 	<div class="container my-4">
 		<div class="row g-3">
 {% for element in elements %}
-			<div id="{{ element.id | escape }}" class="{{ element.columnClass }} dashboard-element dashboard-element-{{ element.type | escape }}"></div>
+			<div id="{{ element.id | escape }}" class="{{ element.columnClass }} dashboard-element dashboard-element-{{ element.type | escape }}">
+{{ element.html | safe }}
+			</div>
 {% endfor %}
 		</div>
 	</div>
@@ -87,19 +89,13 @@ document.addEventListener('DOMContentLoaded', () => {
 		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 	}[char]));
 {% for element in elements %}
-	{
-		const target = document.getElementById({{ element.idJson | safe }});
-		if (target) target.innerHTML = {{ element.htmlJson | safe }};
-	}
-{% endfor %}
-{% for element in elements %}
 {% if element.script %}
 	try {
 		(() => {
 {{ element.script | safe }}
 		})();
 	} catch (error) {
-		console.error('Dashboard element failed:', {{ element.idJson | safe }}, error);
+		console.error('Dashboard element failed:', "{{ element.id }}", error);
 	}
 {% endif %}
 {% endfor %}

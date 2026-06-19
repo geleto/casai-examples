@@ -86,22 +86,16 @@ const renderedElementSchema = z.object({
 const processedElementSchema = dashboardElementSchema.extend({
 	previewJson: z.string().optional(),
 	contentHtml: z.string().optional(),
-	rows: z.array(z.any()).optional(),
 	html: z.string(),
 	script: z.string(),
+	dataJson: z.string().optional(),
 });
 
 const processedDashboardSchema = z.array(processedElementSchema);
 
 type ProcessedElement = z.infer<typeof processedElementSchema>;
-interface LayoutElement {
-	id: string;
-	type: ProcessedElement['type'];
+interface LayoutElement extends ProcessedElement {
 	columnClass: string;
-	htmlJson: string;
-	script: string;
-	idJson: string;
-	dataJson?: string;
 }
 
 function columnClass(element: ProcessedElement, kpiIndex: number, kpiCount: number, contentIndex: number, contentCount: number): string {
@@ -127,15 +121,8 @@ function layoutElements(elements: ProcessedElement[]): LayoutElement[] {
 			if (element.type == 'kpi') kpiIndex++;
 			else if (element.type != 'header') contentIndex++;
 			return {
-				id: element.id,
-				type: element.type,
+				...element,
 				columnClass: column,
-				htmlJson: safeScriptText(JSON.stringify(element.html)),
-				script: safeScriptText(element.script.trim()),
-				idJson: safeScriptText(JSON.stringify(element.id)),
-				dataJson: element.usesData && element.rows
-					? safeScriptText(`${JSON.stringify(element.id)}: ${JSON.stringify(element.rows)}`)
-					: undefined,
 			};
 		});
 }
@@ -246,6 +233,7 @@ const dashboardProcessor = create.Script({
 			}
 		},
 		toJson: (value: unknown) => JSON.stringify(value, null, 2),
+		safeScriptText,
 		datasetDescription: input.datasetDescription,
 		datasetName: input.datasetName,
 		userRequest: input.userRequest,
@@ -278,9 +266,12 @@ const dashboardProcessor = create.Script({
 			var renderedElement = elementRenderer({
 				elementJson: toJson(element)
 			}).object
-			element.rows = rows // attach now to avoid filling the render prompt with full data
+			// Build dashboard fields after rendering so the renderer prompt is not filled with complete data.
 			element.html = renderedElement.html
-			element.script = renderedElement.script
+			element.script = safeScriptText(renderedElement.script.trim())
+			if element.usesData
+				element.dataJson = safeScriptText(toJson(element.id) ~ ": " ~ toJson(rows))
+			endif
 			return element
 		endfunction
 
@@ -290,6 +281,8 @@ const dashboardProcessor = create.Script({
 			userRequest: userRequest,
 			schemaSummary: schemaSummary
 		}
+
+		//TODO: use array streans when implemented
 		var headerKpis = headerKpiPlanner(plannerInput).object
 		var chartsTables = visualPlanner(plannerInput).object
 		var insightsText = insightTextPlanner(plannerInput).object
