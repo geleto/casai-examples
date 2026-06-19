@@ -35,7 +35,6 @@ interface PlanningInput {
 	databaseUrl: string;
 	port: number;
 }
-
 const input: PlanningInput = inputJson;
 
 const BASE_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -45,14 +44,10 @@ const templateLoader = new FileSystemLoader(fileURLToPath(new URL('./templates',
 function openInBrowser(url: string): void {
 	const command = process.platform === 'win32'
 		? 'cmd'
-		: process.platform === 'darwin'
-			? 'open'
-			: 'xdg-open';
+		: process.platform === 'darwin' ? 'open' : 'xdg-open';
 	const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
 	const child = spawn(command, args, {
-		detached: true,
-		stdio: 'ignore',
-		windowsHide: true,
+		detached: true, stdio: 'ignore', windowsHide: true,
 	});
 	child.on('error', (error) => {
 		console.warn(`Could not open dashboard automatically: ${error.message}`);
@@ -153,8 +148,7 @@ const elementProcessor = create.Script({
 			}
 		},
 		saveData: (rows: any[], database: Database) => {
-			const pointId = dataPointCounter++;
-			const dataKey = `${database.datasetName}_${pointId}`;
+			const dataKey = `${database.datasetName}_${dataPointCounter++}`;
 			collectedData[dataKey] = rows;
 			return dataKey;
 		},
@@ -165,8 +159,7 @@ const elementProcessor = create.Script({
 		previewJson: z.string().optional(),
 	})),
 	script: `
-		data processedElements
-		processedElements = []
+		data processedElements = []
 		for element in elements
 			var processedElement = element
 			if element.usesData and element.dataRequest
