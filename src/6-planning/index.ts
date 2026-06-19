@@ -295,14 +295,10 @@ const dashboardProcessor = create.Script({
 		var insightsText = insightTextPlanner(plannerInput).object
 
 		data processedElements = []
-		for element in headerKpis
-			processedElements.push(processElement(element))
-		endfor
-		for element in chartsTables
-			processedElements.push(processElement(element))
-		endfor
-		for element in insightsText
-			processedElements.push(processElement(element))
+		for section in [headerKpis, chartsTables, insightsText]
+			for element in section
+				processedElements.push(processElement(element))
+			endfor
 		endfor
 		return processedElements.snapshot()`
 });
