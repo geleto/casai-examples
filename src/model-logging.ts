@@ -50,8 +50,8 @@ interface ModelCallStats {
 const modelStats = new Map<string, ModelCallStats>();
 let totalActiveCalls = 0;
 let maxTotalActiveCalls = 0;
-let firstCallStartTime: number | undefined;
-let lastCallEndTime: number | undefined;
+let activePeriodStartTime: number | undefined;
+let totalActiveDurationMs = 0;
 let summaryLoggerRegistered = false;
 let summaryPrinted = false;
 
@@ -114,14 +114,12 @@ function printModelStatsSummary() {
 	const totalInputTokens = statsEntries.reduce((total, [, stats]) => total + stats.inputTokens, 0);
 	const totalOutputTokens = statsEntries.reduce((total, [, stats]) => total + stats.outputTokens, 0);
 	const totalDurationMs = statsEntries.reduce((total, [, stats]) => total + stats.totalDurationMs, 0);
-	const elapsedMs = firstCallStartTime && lastCallEndTime
-		? lastCallEndTime - firstCallStartTime
-		: 0;
-	const averageConcurrency = elapsedMs > 0 ? totalDurationMs / elapsedMs : 0;
+	const activeDurationMs = totalActiveDurationMs + (activePeriodStartTime ? Date.now() - activePeriodStartTime : 0);
+	const averageConcurrency = activeDurationMs > 0 ? totalDurationMs / activeDurationMs : 0;
 
 	process.stdout.write(`------\n[LLM] Max concurrent calls: ${maxTotalActiveCalls} total\n`);
 	process.stdout.write(
-		`[LLM] Concurrency speedup: ${averageConcurrency.toFixed(2)}x (${formatSeconds(totalDurationMs)} summed call time / ${formatSeconds(elapsedMs)} elapsed)\n`
+		`[LLM] LLM concurrency speedup: ${averageConcurrency.toFixed(2)}x (${formatSeconds(totalDurationMs)} summed call time / ${formatSeconds(activeDurationMs)} active elapsed)\n`
 	);
 	process.stdout.write(`[LLM] Total tokens: ${formatTokenUsage(totalInputTokens, totalOutputTokens)}\n`);
 
@@ -145,7 +143,10 @@ function registerSummaryLogger() {
 function startModelCall(modelName: string): number {
 	registerSummaryLogger();
 
-	firstCallStartTime ??= Date.now();
+	if (totalActiveCalls === 0) {
+		activePeriodStartTime = Date.now();
+	}
+
 	const stats = getModelStats(modelName);
 	stats.started++;
 	stats.active++;
@@ -159,7 +160,7 @@ function startModelCall(modelName: string): number {
 
 function finishModelCall(modelName: string, failed = false, durationMs = 0): number {
 	const stats = getModelStats(modelName);
-	lastCallEndTime = Date.now();
+	const now = Date.now();
 	stats.totalDurationMs += durationMs;
 
 	if (stats.active > 0) {
@@ -167,6 +168,10 @@ function finishModelCall(modelName: string, failed = false, durationMs = 0): num
 	}
 	if (totalActiveCalls > 0) {
 		totalActiveCalls--;
+	}
+	if (totalActiveCalls === 0 && activePeriodStartTime) {
+		totalActiveDurationMs += now - activePeriodStartTime;
+		activePeriodStartTime = undefined;
 	}
 
 	if (failed) {
