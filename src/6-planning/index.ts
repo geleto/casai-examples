@@ -98,6 +98,10 @@ interface LayoutElement extends ProcessedElement {
 	columnClass: string;
 }
 
+const layoutPriority = {
+	header: 0, kpi: 1, chart: 2, table: 3, insight: 4, text: 5, other: 6,
+};
+
 function columnClass(element: ProcessedElement, kpiIndex: number, kpiCount: number, contentIndex: number, contentCount: number): string {
 	if (element.type == 'header') return 'col-12';
 	if (element.type != 'kpi') {
@@ -115,7 +119,7 @@ function layoutElements(elements: ProcessedElement[]): LayoutElement[] {
 	const contentCount = elements.filter(element => element.type != 'header' && element.type != 'kpi').length;
 	let kpiIndex = 0, contentIndex = 0;
 	return [...elements]
-		.sort((a, b) => layoutPriority(a) - layoutPriority(b))
+		.sort((a, b) => layoutPriority[a.type] - layoutPriority[b.type])
 		.map(element => {
 			const column = columnClass(element, kpiIndex, kpiCount, contentIndex, contentCount);
 			if (element.type == 'kpi') kpiIndex++;
@@ -125,12 +129,6 @@ function layoutElements(elements: ProcessedElement[]): LayoutElement[] {
 				columnClass: column,
 			};
 		});
-}
-
-function layoutPriority(element: { type: ProcessedElement['type'] }): number {
-	return {
-		header: 0, kpi: 1, chart: 2, table: 3, insight: 4, text: 5, other: 6,
-	}[element.type];
 }
 
 function safeScriptText(value: string): string {
