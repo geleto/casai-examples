@@ -136,7 +136,7 @@ function safeScriptText(value: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Planner LLMs - create independent sections of the dashboard plan.
+// Planner LLMs - stream independent sections of the dashboard plan.
 // ---------------------------------------------------------------------------
 const plannerConfig = create.Config({
 	model: advancedModel,
@@ -145,17 +145,17 @@ const plannerConfig = create.Config({
 	output: 'array',
 });
 
-const headerKpiPlanner = create.ObjectGenerator.loadsTemplate({
+const headerKpiPlanner = create.ObjectStreamer.loadsTemplate({
 	prompt: 'header-kpi-planner.md',
 	schema: headerKpiElementSchema,
 }, plannerConfig);
 
-const visualPlanner = create.ObjectGenerator.loadsTemplate({
+const visualPlanner = create.ObjectStreamer.loadsTemplate({
 	prompt: 'visual-planner.md',
 	schema: visualElementSchema,
 }, plannerConfig);
 
-const insightTextPlanner = create.ObjectGenerator.loadsTemplate({
+const insightTextPlanner = create.ObjectStreamer.loadsTemplate({
 	prompt: 'insight-text-planner.md',
 	schema: insightTextElementSchema,
 }, plannerConfig);
@@ -280,10 +280,9 @@ const dashboardProcessor = create.Script({
 			schemaSummary: schemaSummary
 		}
 
-		//TODO: use array streans when implemented
-		var headerKpis = headerKpiPlanner(plannerInput).object
-		var chartsTables = visualPlanner(plannerInput).object
-		var insightsText = insightTextPlanner(plannerInput).object
+		var headerKpis = headerKpiPlanner(plannerInput).elementStream
+		var chartsTables = visualPlanner(plannerInput).elementStream
+		var insightsText = insightTextPlanner(plannerInput).elementStream
 
 		data processedElements = []
 		for section in [headerKpis, chartsTables, insightsText]
