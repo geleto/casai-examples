@@ -1,3 +1,11 @@
+/**
+ * Optional model-call observability.
+ *
+ * This file wraps language models only to print progress and aggregate stats
+ * such as timing, token usage, active calls, and max concurrency. It does not
+ * change prompts, model parameters, results, retries, or execution behavior.
+ */
+
 import { wrapLanguageModel } from 'ai';
 import {
 	LanguageModelV3,
@@ -27,6 +35,132 @@ import {
 
 const PREVIEW_LIMIT = 40;
 const TOOL_RESULT_PREVIEW_LIMIT = 100;
+
+interface ModelCallStats {
+	started: number;
+	completed: number;
+	failed: number;
+	active: number;
+	maxActive: number;
+	inputTokens: number;
+	outputTokens: number;
+}
+
+const modelStats = new Map<string, ModelCallStats>();
+let totalActiveCalls = 0;
+let maxTotalActiveCalls = 0;
+let summaryLoggerRegistered = false;
+let summaryPrinted = false;
+
+function getModelStats(modelName: string): ModelCallStats {
+	let stats = modelStats.get(modelName);
+	if (!stats) {
+		stats = {
+			started: 0,
+			completed: 0,
+			failed: 0,
+			active: 0,
+			maxActive: 0,
+			inputTokens: 0,
+			outputTokens: 0,
+		};
+		modelStats.set(modelName, stats);
+	}
+	return stats;
+}
+
+function getTokenCount(val: unknown): number {
+	if (typeof val === 'number') return val;
+	if (typeof val === 'object' && val !== null && 'total' in val) {
+		const total = (val as { total?: number | undefined }).total;
+		return typeof total === 'number' ? total : 0;
+	}
+	return 0;
+}
+
+function getUsageCounts(usage: LanguageModelV3Usage | undefined) {
+	const inputTokens = getTokenCount(usage?.inputTokens);
+	const outputTokens = getTokenCount(usage?.outputTokens);
+	return { inputTokens, outputTokens };
+}
+
+function formatTokenUsage(inputTokens: number, outputTokens: number) {
+	const totalTokens = inputTokens + outputTokens;
+	return `${totalTokens.toLocaleString()} tokens (${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out)`;
+}
+
+function recordModelUsage(modelName: string, usage: LanguageModelV3Usage | undefined) {
+	const stats = getModelStats(modelName);
+	const { inputTokens, outputTokens } = getUsageCounts(usage);
+	stats.inputTokens += inputTokens;
+	stats.outputTokens += outputTokens;
+}
+
+function printModelStatsSummary() {
+	if (summaryPrinted || modelStats.size === 0) {
+		return;
+	}
+
+	summaryPrinted = true;
+	const statsEntries = Array.from(modelStats.entries());
+	const totalInputTokens = statsEntries.reduce((total, [, stats]) => total + stats.inputTokens, 0);
+	const totalOutputTokens = statsEntries.reduce((total, [, stats]) => total + stats.outputTokens, 0);
+
+	process.stdout.write(`------\n[LLM] Max concurrent calls: ${maxTotalActiveCalls} total\n`);
+	process.stdout.write(`[LLM] Total tokens: ${formatTokenUsage(totalInputTokens, totalOutputTokens)}\n`);
+
+	statsEntries.forEach(([name, stats]) => {
+		process.stdout.write(
+			`[LLM] ${name}: max ${stats.maxActive}, calls ${stats.started}, tokens ${formatTokenUsage(stats.inputTokens, stats.outputTokens)}\n`
+		);
+	});
+}
+
+function registerSummaryLogger() {
+	if (summaryLoggerRegistered) {
+		return;
+	}
+
+	summaryLoggerRegistered = true;
+	process.once('beforeExit', printModelStatsSummary);
+	process.once('exit', printModelStatsSummary);
+}
+
+function startModelCall(modelName: string): number {
+	registerSummaryLogger();
+
+	const stats = getModelStats(modelName);
+	stats.started++;
+	stats.active++;
+	stats.maxActive = Math.max(stats.maxActive, stats.active);
+
+	totalActiveCalls++;
+	maxTotalActiveCalls = Math.max(maxTotalActiveCalls, totalActiveCalls);
+
+	return stats.active;
+}
+
+function finishModelCall(modelName: string, failed = false): number {
+	const stats = getModelStats(modelName);
+	if (stats.active > 0) {
+		stats.active--;
+	}
+	if (totalActiveCalls > 0) {
+		totalActiveCalls--;
+	}
+
+	if (failed) {
+		stats.failed++;
+	} else {
+		stats.completed++;
+	}
+
+	return stats.active;
+}
+
+function getActiveAfterCurrentCall(modelName: string): number {
+	return Math.max((modelStats.get(modelName)?.active ?? 1) - 1, 0);
+}
 
 // Helper function to extract and format tool arguments
 function getToolArguments(part: { type: string;[key: string]: unknown }): string {
@@ -74,24 +208,8 @@ function logCompletion(
 ) {
 	const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-	// Show input/output tokens for better visibility
-	// Handle both number and object formats (some providers return structured usage)
-	const getCount = (val: unknown): number => {
-		if (typeof val === 'number') return val;
-		if (typeof val === 'object' && val !== null && 'total' in val) {
-			const total = (val as { total?: number | undefined }).total;
-			return typeof total === 'number' ? total : 0;
-		}
-		return 0;
-	};
-
-	const inputTokens = getCount(usage?.inputTokens);
-	const outputTokens = getCount(usage?.outputTokens);
-	const totalTokens = inputTokens + outputTokens;
-
-	const tokenInfo = inputTokens > 0
-		? `${totalTokens} tokens (${inputTokens} in + ${outputTokens} out)`
-		: `${outputTokens} tokens`;
+	const { inputTokens, outputTokens } = getUsageCounts(usage);
+	const tokenInfo = formatTokenUsage(inputTokens, outputTokens);
 
 	let resultSuffix = '';
 	if (text) {
@@ -224,7 +342,6 @@ export function withProgressIndicator(
 	}
 
 	let callCounter = 0;
-	let activeCalls = 0;
 
 	return wrapLanguageModel({
 		model,
@@ -235,15 +352,14 @@ export function withProgressIndicator(
 				const startTime = Date.now();
 				const promptSuffix = formatPromptSuffix(getPromptPreview(params));
 
-				activeCalls++;
+				const activeCalls = startModelCall(modelName);
 				process.stdout.write(
 					`[${modelName} #${callId}] 🚩 Start generating${promptSuffix} | active: ${activeCalls}\n`
 				);
 
+				let callFinished = false;
 				try {
 					const result = await doGenerate();
-					activeCalls--;
-
 					const textParts: string[] = [];
 					const toolCallMap = new Map<string, string>();
 
@@ -276,6 +392,9 @@ export function withProgressIndicator(
 					});
 
 					const text = textParts.join(', ');
+					recordModelUsage(modelName, result.usage);
+					const activeCallsAfterFinish = finishModelCall(modelName);
+					callFinished = true;
 
 					logCompletion(
 						modelName,
@@ -283,13 +402,15 @@ export function withProgressIndicator(
 						startTime,
 						result.usage,
 						'generating',
-						activeCalls,
+						activeCallsAfterFinish,
 						text
 					);
 
 					return result;
 				} catch (error) {
-					activeCalls--;
+					if (!callFinished) {
+						finishModelCall(modelName, true);
+					}
 					throw error;
 				}
 			},
@@ -299,7 +420,7 @@ export function withProgressIndicator(
 				const startTime = Date.now();
 				const promptSuffix = formatPromptSuffix(getPromptPreview(params));
 
-				activeCalls++;
+				const activeCalls = startModelCall(modelName);
 				process.stdout.write(
 					`[${modelName} #${callId}] 🚩 Start streaming${promptSuffix} | active: ${activeCalls}\n`
 				);
@@ -308,7 +429,7 @@ export function withProgressIndicator(
 				try {
 					streamResult = await doStream();
 				} catch (error) {
-					activeCalls--;
+					finishModelCall(modelName, true);
 					throw error;
 				}
 
@@ -321,6 +442,16 @@ export function withProgressIndicator(
 				const loggedToolCalls = new Set<string>();
 				let streamFinished = false;
 				let finishReason: LanguageModelV3FinishReason | string | undefined;
+				let callEnded = false;
+
+				const endStreamCall = (failed = false) => {
+					if (callEnded) {
+						return getModelStats(modelName).active;
+					}
+
+					callEnded = true;
+					return finishModelCall(modelName, failed);
+				};
 
 				const transformStream = new TransformStream<LanguageModelV3StreamPart, LanguageModelV3StreamPart>({
 					transform(chunk: LanguageModelV3StreamPart, controller) {
@@ -426,10 +557,11 @@ export function withProgressIndicator(
 									startTime,
 									chunk.usage,
 									'streaming',
-									activeCalls - 1, // Show correct count after decrement
+									getActiveAfterCurrentCall(modelName),
 									logText,
 									finishReason
 								);
+								recordModelUsage(modelName, chunk.usage);
 
 								// Cleanup maps
 								toolInputs.clear();
@@ -437,6 +569,7 @@ export function withProgressIndicator(
 								loggedToolCalls.clear();
 							}
 						} catch (error) {
+							endStreamCall(true);
 							// Log unexpected errors during chunk processing
 							const errorMsg = error instanceof Error ? error.message : 'unknown';
 							process.stdout.write(
@@ -450,13 +583,13 @@ export function withProgressIndicator(
 					flush() {
 						// Ensure activeCalls is decremented if stream ends without finish
 						if (!streamFinished) {
-							activeCalls--;
+							const activeCalls = endStreamCall(true);
 							process.stdout.write(
 								`[${modelName} #${callId}] ⚠️  Stream ended without finish chunk | active: ${activeCalls}\n`
 							);
 						} else {
 							// Normal finish already decremented
-							activeCalls--;
+							endStreamCall();
 						}
 
 						// Cleanup on stream end
