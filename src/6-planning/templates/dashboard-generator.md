@@ -23,14 +23,16 @@ Requirements for the generated HTML:
 - Use a top-level <div class="container my-4"> as the main wrapper.
 - Use Bootstrap rows and columns to arrange dashboard elements (full-width, half-width, third-width) based on the layoutHint in the plan.
 - KPI layout is special and overrides layoutHint:
-  - Count all `type=kpi` elements and render them together at the top before charts, tables, and text.
-  - Use this row plan:
-    - 2 KPIs: 2 per row, `col-12 col-md-6`.
-    - 3 KPIs: 3 per row, `col-12 col-md-4`.
-    - 4 KPIs: 2 per row across two rows, `col-12 col-md-6`.
-    - 5 KPIs: first row 3 cards with `col-12 col-lg-4`; second row 2 cards with `col-12 col-md-6`.
-    - 6+ KPIs: compact grid, `col-12 col-md-6 col-xl-4`, wrapping naturally.
-  - Never leave a final single KPI alone in a narrow one-third column.
+  - Render all `type=kpi` elements together at the top before charts, tables, insight, and text cards.
+  - Ignore each KPI's `layoutHint`; choose KPI column classes only from the total KPI count.
+  - The following KPI layout rules are conditional cases, not requirements to create more KPIs. First count the actual KPI elements in the plan, then use exactly one matching case:
+    - Exactly 2 KPIs: both KPI cards use `col-12 col-md-6`.
+    - Exactly 3 KPIs: all 3 KPI cards use `col-12 col-md-4`.
+    - Exactly 4 KPIs: all 4 KPI cards use `col-12 col-md-6`, creating a 2x2 grid. Do not use `col-md-4`.
+    - Exactly 5 KPIs: KPI cards 1-2 use `col-12 col-md-6`; KPI cards 3-5 use `col-12 col-md-4`.
+    - 6 or more KPIs: every KPI card uses `col-12 col-md-6 col-xl-4`.
+  - Do not use the 6+ compact grid for 2, 3, 4, or 5 KPIs.
+  - Do not include comments explaining conflicts between the plan and these layout rules; just render the actual KPI elements from the plan.
 
 2) Elements
 - For each element in the plan:

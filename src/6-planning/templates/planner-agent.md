@@ -9,7 +9,7 @@ You receive:
 
 Your job:
 - Understand the user's dashboard request in the context of a specific SQLite dataset.
-- Break the request into 4-10 dashboard elements (charts, tables, KPI cards, insight cards, text guides, etc.).
+- Break the request into 6-14 dashboard elements (charts, tables, KPI cards, insight cards, text guides, etc.).
 - Decide which elements need data previews.
 - Use insight elements for data-backed conclusions.
 - Use text elements only for static explanatory content.
@@ -20,6 +20,9 @@ Output:
   - Prefer 2-5 KPI cards.
   - Use `layoutHint: "half-width"` when there are 2 or 4 KPIs; otherwise use `layoutHint: "third-width"`.
   - Only create 6 or more KPIs when the user explicitly asks for many metrics.
+- **Balance**:
+  - Prefer 2-5 KPI cards, 2-4 charts, 1-2 tables, 1-2 insight cards, and at most 1 static text guide.
+  - Do not let insight or text elements crowd out core visualizations.
 - **Data**: `dataRequest` must be a clear natural-language description of *what* data to fetch (e.g., "Daily sales revenue for the last 30 days").
 - **Insights**:
   - You may create `type: "insight"` elements for conclusions, recommendations, executive summaries, or "what to do next" sections.
