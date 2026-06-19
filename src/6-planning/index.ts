@@ -6,8 +6,8 @@
  *
  * HOW IT WORKS:
  * 1. Generate a schema summary by inspecting the SQLite database
- * 2. Analyze the user request and schema to plan dashboard elements
- * 3. Planner Agent returns structured dashboard elements, with a header first
+ * 2. Run three planner agents in parallel for KPIs, visuals, and insights
+ * 3. Each planned element is processed as soon as its planner section is ready
  * 4. For each data-backed element, generate and execute SQL to fetch the needed data
  * 5. Insight elements are converted into concise data-backed HTML
  * 6. Each element is rendered as an independent HTML/JS fragment
@@ -69,6 +69,16 @@ const dashboardElementSchema = z.object({
 	dataRequest: z.string().optional().describe('Natural language description of needed data (if usesData is true)'),
 });
 
+const headerKpiElementSchema = dashboardElementSchema.extend({
+	type: z.enum(['header', 'kpi']),
+});
+const visualElementSchema = dashboardElementSchema.extend({
+	type: z.enum(['chart', 'table']),
+});
+const insightTextElementSchema = dashboardElementSchema.extend({
+	type: z.enum(['insight', 'text']),
+});
+
 const renderedElementSchema = z.object({
 	id: z.string(),
 	type: z.enum(['header', 'chart', 'table', 'text', 'insight', 'kpi', 'other']),
@@ -92,7 +102,7 @@ interface LayoutElement {
 	id: string;
 	type: RenderedElement['type'];
 	columnClass: string;
-	html: string;
+	htmlJson: string;
 	script: string;
 	idJson: string;
 }
@@ -101,7 +111,7 @@ function columnClass(element: RenderedElement, kpiIndex: number, kpiCount: numbe
 	if (element.type == 'header') return 'col-12';
 	if (element.type != 'kpi') {
 		const isLastOddItem = contentIndex == contentCount - 1 && (contentCount - 1) % 2 == 1;
-		return contentIndex == 0 || isLastOddItem ? 'col-12' : 'col-12 col-lg-6';
+		return contentIndex == 0 || isLastOddItem ? 'col-12' : 'col-12 col-md-6';
 	}
 	if (kpiCount == 2 || kpiCount == 4 || (kpiCount == 5 && kpiIndex < 2)) {
 		return 'col-12 col-md-6';
@@ -110,10 +120,11 @@ function columnClass(element: RenderedElement, kpiIndex: number, kpiCount: numbe
 }
 
 function layoutElements(elements: RenderedElement[]): LayoutElement[] {
-	const kpiCount = elements.filter(element => element.type == 'kpi').length;
-	const contentCount = elements.filter(element => element.type != 'header' && element.type != 'kpi').length;
+	const orderedElements = [...elements].sort((a, b) => layoutPriority(a) - layoutPriority(b));
+	const kpiCount = orderedElements.filter(element => element.type == 'kpi').length;
+	const contentCount = orderedElements.filter(element => element.type != 'header' && element.type != 'kpi').length;
 	let kpiIndex = 0, contentIndex = 0;
-	return elements.map(element => {
+	return orderedElements.map(element => {
 		const column = columnClass(element, kpiIndex, kpiCount, contentIndex, contentCount);
 		if (element.type == 'kpi') kpiIndex++;
 		else if (element.type != 'header') contentIndex++;
@@ -121,30 +132,47 @@ function layoutElements(elements: RenderedElement[]): LayoutElement[] {
 			id: element.id,
 			type: element.type,
 			columnClass: column,
-			html: element.html,
-			script: element.script.trim().replace(/<\/script/gi, '<\\/script'),
-			idJson: JSON.stringify(element.id),
+			htmlJson: safeScriptText(JSON.stringify(element.html)),
+			script: safeScriptText(element.script.trim()),
+			idJson: safeScriptText(JSON.stringify(element.id)),
 		};
-	}).sort((a, b) => layoutPriority(a) - layoutPriority(b));
+	});
 }
 
-function layoutPriority(element: LayoutElement): number {
-	if (element.type == 'header') return 0;
-	if (element.type == 'kpi') return 1;
-	return 2;
+function layoutPriority(element: { type: RenderedElement['type'] }): number {
+	return {
+		header: 0, kpi: 1, chart: 2, table: 3, insight: 4, text: 5, other: 6,
+	}[element.type];
+}
+
+function safeScriptText(value: string): string {
+	return value.replace(/<\/script/gi, '<\\/script');
 }
 
 // ---------------------------------------------------------------------------
-// Planner LLM - creates the structured dashboard element plan.
+// Planner LLMs - create independent sections of the dashboard plan.
 // ---------------------------------------------------------------------------
-const plannerAgent = create.ObjectGenerator.loadsTemplate({
+const plannerConfig = create.Config({
 	model: advancedModel,
 	providerOptions,
 	loader: templateLoader,
-	prompt: 'planner-agent.md',
-	output: 'array',
-	schema: dashboardElementSchema,
+	output: 'array' as const,
 });
+
+const headerKpiPlanner = create.ObjectGenerator.loadsTemplate({
+	prompt: 'header-kpi-planner.md',
+	schema: headerKpiElementSchema,
+}, plannerConfig);
+
+const visualPlanner = create.ObjectGenerator.loadsTemplate({
+	prompt: 'visual-planner.md',
+	schema: visualElementSchema,
+}, plannerConfig);
+
+const insightTextPlanner = create.ObjectGenerator.loadsTemplate({
+	prompt: 'insight-text-planner.md',
+	schema: insightTextElementSchema,
+}, plannerConfig);
 
 // ---------------------------------------------------------------------------
 // SQL generator - turns each natural-language data request into SQLite.
@@ -192,10 +220,13 @@ const schemaSummaryTemplate = create.Template.loadsTemplate({
 });
 
 // ---------------------------------------------------------------------------
-// Element processor - fetches data, creates insights, and renders cards.
+// Dashboard processor - plans sections in parallel, fetches data, and renders cards.
 // ---------------------------------------------------------------------------
-const elementProcessor = create.Script({
+const dashboardProcessor = create.Script({
 	context: {
+		headerKpiPlanner,
+		visualPlanner,
+		insightTextPlanner,
 		sqlFromRequestGenerator,
 		textInsightGenerator,
 		elementRenderer,
@@ -225,9 +256,7 @@ const elementProcessor = create.Script({
 	},
 	schema: processedDashboardSchema,
 	script: `
-		data processedElements = []
-		data renderedElements = []
-		for element in elements
+		function processElement(element)
 			if element.usesData and element.dataRequest
 				var sqlResult = sqlFromRequestGenerator({
 					datasetDescription: datasetDescription,
@@ -250,11 +279,41 @@ const elementProcessor = create.Script({
 					}).text
 				endif
 			endif
-			processedElements.push(element)
 			var renderedElement = elementRenderer({
 				elementJson: toJson(element)
 			}).object
-			renderedElements.push(renderedElement)
+			return {
+				element: element,
+				renderedElement: renderedElement
+			}
+		endfunction
+
+		var plannerInput = {
+			datasetName: datasetName,
+			datasetDescription: datasetDescription,
+			userRequest: userRequest,
+			schemaSummary: schemaSummary
+		}
+		var headerKpis = headerKpiPlanner(plannerInput).object
+		var chartsTables = visualPlanner(plannerInput).object
+		var insightsText = insightTextPlanner(plannerInput).object
+
+		data processedElements = []
+		data renderedElements = []
+		for element in headerKpis
+			var result = processElement(element)
+			processedElements.push(result.element)
+			renderedElements.push(result.renderedElement)
+		endfor
+		for element in chartsTables
+			var result = processElement(element)
+			processedElements.push(result.element)
+			renderedElements.push(result.renderedElement)
+		endfor
+		for element in insightsText
+			var result = processElement(element)
+			processedElements.push(result.element)
+			renderedElements.push(result.renderedElement)
 		endfor
 		return {
 			elements: processedElements.snapshot(),
@@ -276,21 +335,13 @@ try {
 	const schemaSummary = await schemaSummaryTemplate(schemaMetadata);
 	console.log(`\n=== Schema Summary ===\n${schemaSummary}`);
 
-	// 4. Run planner with structured output
-	console.log('\nRunning planner agent (Structured Output)...\n');
-	const elements = (await plannerAgent({
-		datasetName: input.datasetName,
-		datasetDescription: input.datasetDescription,
-		userRequest: input.userRequest,
-		schemaSummary,
-	})).object;
-	if (elements[0]?.type != 'header') {
+	// 4. Plan sections, fetch data, generate insights, and render each card
+	console.log('\nRunning planner sections and processing elements...\n');
+	const processedDashboard = await dashboardProcessor({ database, schemaSummary }) as z.infer<typeof processedDashboardSchema>;
+	if (processedDashboard.elements[0]?.type != 'header') {
 		throw new Error('Planner must return a header element first.');
 	}
-	console.log(`\nPlanner returned ${elements.length} elements. Processing data requests...`);
-
-	// 5. Process elements: fetch data, generate insights, and render each card
-	const processedDashboard = await elementProcessor({ elements, database, schemaSummary }) as z.infer<typeof processedDashboardSchema>;
+	console.log(`\nPlanner returned and processed ${processedDashboard.elements.length} elements.`);
 
 	// 6. Log a compact plan summary
 	console.log('\n=== DASHBOARD PLAN ===');
@@ -303,7 +354,7 @@ try {
 
 	// 8. Wrap, save, and open final HTML
 	const finalHtml = await dashboardTemplate({
-		title: elements[0].title,
+		title: processedDashboard.elements[0].title,
 		elements: layoutElements(processedDashboard.renderedElements),
 		dataJson: JSON.stringify(collectedData),
 	});

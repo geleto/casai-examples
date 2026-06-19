@@ -19,6 +19,7 @@ Rules:
 - Use stable internal DOM ids based on the element id, such as appending `-value`, `-table-body`, or `-canvas`.
 - The outer dashboard template already provides a wrapper whose id is exactly the element id.
 - For every type except `header`, `html` must be exactly one complete root `<div class="card h-100">...</div>`.
+- `html` must be valid, balanced HTML. Never emit stray closing tags.
 - Every card must contain exactly one `<div class="card-body">...</div>`, and all visible content must be inside it.
 - Do not use `.card-header`; put the title and description at the top of `.card-body`.
 - For `header`: render a richer page header, not a card. Use one root `<header ...>` or `<div ...>`, use the element title as the main heading, the description as supporting copy, and `script: ""`. Do not include data findings or recommendations.
