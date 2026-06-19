@@ -91,9 +91,7 @@ const processedElementSchema = dashboardElementSchema.extend({
 	script: z.string(),
 });
 
-const processedDashboardSchema = z.object({
-	elements: z.array(processedElementSchema),
-});
+const processedDashboardSchema = z.array(processedElementSchema);
 
 type ProcessedElement = z.infer<typeof processedElementSchema>;
 interface LayoutElement {
@@ -159,7 +157,7 @@ const plannerConfig = create.Config({
 	model: advancedModel,
 	providerOptions,
 	loader: templateLoader,
-	output: 'array' as const,
+	output: 'array',
 });
 
 const headerKpiPlanner = create.ObjectGenerator.loadsTemplate({
@@ -257,13 +255,13 @@ const dashboardProcessor = create.Script({
 		function processElement(element)
 			var rows = []
 			if element.usesData and element.dataRequest
-				var sqlResult = sqlFromRequestGenerator({
+				var sql = sqlFromRequestGenerator({
 					datasetDescription: datasetDescription,
 					schemaSummary: schemaSummary,
 					elementType: element.type,
 					dataRequest: element.dataRequest
 				}).text
-				rows = database.executeSql(sqlResult)
+				rows = database.executeSql(sql)
 				element.previewJson = generatePreviewJson(rows)
 				if element.type == "insight"
 					element.contentHtml = textInsightGenerator({
@@ -306,9 +304,7 @@ const dashboardProcessor = create.Script({
 		for element in insightsText
 			processedElements.push(processElement(element))
 		endfor
-		return {
-			elements: processedElements.snapshot()
-		}`
+		return processedElements.snapshot()`
 });
 
 console.log('PLANNING PATTERN EXAMPLE\nDemonstrates an AI agent that creates a data dashboard by first planning the layout and data requirements, then executing that plan.\n');
@@ -327,15 +323,15 @@ try {
 
 	// 4. Plan sections, fetch data, generate insights, and render each card
 	console.log('\nRunning planner sections and processing elements...\n');
-	const processedDashboard = await dashboardProcessor({ database, schemaSummary }) as z.infer<typeof processedDashboardSchema>;
-	if (processedDashboard.elements[0]?.type != 'header') {
+	const elements = await dashboardProcessor({ database, schemaSummary });
+	if (elements[0]?.type != 'header') {
 		throw new Error('Planner must return a header element first.');
 	}
-	console.log(`\nPlanner returned and processed ${processedDashboard.elements.length} elements.`);
+	console.log(`\nPlanner returned and processed ${elements.length} elements.`);
 
 	// 6. Log a compact plan summary
 	console.log('\n=== DASHBOARD PLAN ===');
-	for (const element of processedDashboard.elements) {
+	for (const element of elements) {
 		console.log(`${element.type}: ${element.title}`);
 	}
 
@@ -344,8 +340,7 @@ try {
 
 	// 8. Wrap, save, and open final HTML
 	const finalHtml = await dashboardTemplate({
-		title: processedDashboard.elements[0].title,
-		elements: layoutElements(processedDashboard.elements),
+		elements: layoutElements(elements),
 	});
 	writeFileSync(OUTPUT_HTML, finalHtml, 'utf-8');
 	const dashboardUrl = pathToFileURL(OUTPUT_HTML).href;
