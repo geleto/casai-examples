@@ -24,25 +24,15 @@
 import { spawn } from 'child_process';
 import { writeFileSync } from 'fs';
 import { basicModel, advancedModel, providerOptions } from '../setup';
-import { create, FileSystemLoader, z } from 'casai';
+import { create, FileSystemLoader } from 'casai';
 import { fileURLToPath, pathToFileURL } from 'url';
 import path from 'path';
 import { Database } from './Database';
+import { schemas } from './types';
+import type { types } from './types';
 
 import inputJson from './input.json';
-interface PlanningScenario {
-	name: string;
-	userRequest: string;
-	datasetName: string;
-	datasetDescription: string;
-	databaseUrl: string;
-	port: number;
-}
-
-const inputFile: {
-	activeScenario: string;
-	scenarios: Record<string, PlanningScenario>;
-} = inputJson;
+const inputFile: types.PlanningInputFile = inputJson;
 const input = inputFile.scenarios[inputFile.activeScenario];
 if (!input) {
 	throw new Error(`input.json activeScenario "${inputFile.activeScenario}" was not found.`);
@@ -66,53 +56,11 @@ function openInBrowser(url: string): void {
 	child.unref();
 }
 
-const dashboardElementSchema = z.object({
-	id: z.string().describe('Unique identifier for the element'),
-	type: z.enum(['header', 'metric', 'chart', 'table', 'text', 'insight', 'other']).describe('Type of dashboard element'),
-	title: z.string().describe('Display title for the element'),
-	description: z.string().describe('Brief description of what this element shows'),
-	usesData: z.boolean().describe('Whether this element requires data fetching'),
-	dataRequest: z.string().optional().describe('Natural language description of needed data (if usesData is true)'),
-});
-
-const headerMetricElementSchema = dashboardElementSchema.extend({
-	type: z.enum(['header', 'metric']),
-});
-const visualElementSchema = dashboardElementSchema.extend({
-	type: z.enum(['chart', 'table']),
-});
-const insightTextElementSchema = dashboardElementSchema.extend({
-	type: z.enum(['insight', 'text']),
-});
-
-const renderedElementSchema = z.object({
-	id: z.string(),
-	type: z.enum(['header', 'metric', 'chart', 'table', 'text', 'insight', 'other']),
-	html: z.string().describe('HTML fragment with no row/column wrapper'),
-	script: z.string().describe('Raw JavaScript statements to run inside an existing DOMContentLoaded listener. Use an empty string if none.'),
-});
-
-const processedElementSchema = dashboardElementSchema.extend({
-	previewJson: z.string().optional(),
-	contentHtml: z.string().optional(),
-	queryError: z.string().optional(),
-	html: z.string().optional(),
-	script: z.string().optional(),
-	dataJson: z.string().optional(),
-});
-
-const processedDashboardSchema = z.array(processedElementSchema);
-
-type ProcessedElement = z.infer<typeof processedElementSchema>;
-interface LayoutElement extends ProcessedElement {
-	columnClass: string;
-}
-
 const layoutPriority = {
 	header: 0, metric: 1, chart: 2, table: 3, insight: 4, text: 5, other: 6,
 };
 
-function columnClass(element: ProcessedElement, metricIndex: number, metricCount: number, contentIndex: number, contentCount: number): string {
+function columnClass(element: types.ProcessedElement, metricIndex: number, metricCount: number, contentIndex: number, contentCount: number): string {
 	if (element.type == 'header') return 'col-12';
 	if (element.type != 'metric') {
 		const isLastOddItem = contentIndex == contentCount - 1 && (contentCount - 1) % 2 == 1;
@@ -124,7 +72,7 @@ function columnClass(element: ProcessedElement, metricIndex: number, metricCount
 	return metricCount > 5 ? 'col-12 col-md-6 col-xl-4' : 'col-12 col-md-4';
 }
 
-function layoutElements(elements: ProcessedElement[]): LayoutElement[] {
+function layoutElements(elements: types.ProcessedElement[]): types.LayoutElement[] {
 	const metricCount = elements.filter(element => element.type == 'metric').length;
 	const contentCount = elements.filter(element => element.type != 'header' && element.type != 'metric').length;
 	let metricIndex = 0, contentIndex = 0;
@@ -157,17 +105,17 @@ const plannerConfig = create.Config({
 
 const headerMetricPlanner = create.ObjectStreamer.loadsTemplate({
 	prompt: 'header-metric-planner.md',
-	schema: headerMetricElementSchema,
+	schema: schemas.headerMetricElement,
 }, plannerConfig);
 
 const visualPlanner = create.ObjectStreamer.loadsTemplate({
 	prompt: 'visual-planner.md',
-	schema: visualElementSchema,
+	schema: schemas.visualElement,
 }, plannerConfig);
 
 const insightTextPlanner = create.ObjectStreamer.loadsTemplate({
 	prompt: 'insight-text-planner.md',
-	schema: insightTextElementSchema,
+	schema: schemas.insightTextElement,
 }, plannerConfig);
 
 // ---------------------------------------------------------------------------
@@ -206,7 +154,7 @@ const elementRenderer = create.ObjectGenerator.loadsTemplate({
 	loader: templateLoader,
 	prompt: 'element-renderer.md',
 	output: 'object',
-	schema: renderedElementSchema,
+	schema: schemas.renderedElement,
 });
 
 // ---------------------------------------------------------------------------
@@ -254,7 +202,7 @@ const dashboardProcessor = create.Script({
 		datasetName: input.datasetName,
 		userRequest: input.userRequest,
 	},
-	schema: processedDashboardSchema,
+	schema: schemas.processedDashboard,
 	script: `
 		function processElement(element)
 			element.id = normalizeElementId(element.type, element.id)
