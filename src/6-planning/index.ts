@@ -170,6 +170,13 @@ const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
 	prompt: 'sql-generator.md',
 });
 
+const sqlRepairGenerator = create.TextGenerator.loadsTemplate({
+	model: advancedModel,
+	providerOptions,
+	loader: templateLoader,
+	prompt: 'sql-repair-generator.md',
+});
+
 // ---------------------------------------------------------------------------
 // Insight generator - turns query results into data-backed HTML text.
 // ---------------------------------------------------------------------------
@@ -214,6 +221,7 @@ const dashboardProcessor = create.Script({
 		visualPlanner,
 		insightTextPlanner,
 		sqlFromRequestGenerator,
+		sqlRepairGenerator,
 		textInsightGenerator,
 		elementRenderer,
 		generatePreviewJson: (rows: any[], rowLimit = 5) => {
@@ -247,7 +255,22 @@ const dashboardProcessor = create.Script({
 					elementType: element.type,
 					dataRequest: element.dataRequest
 				}).text
-				rows = database.executeSql(sql)
+				var queryResult = database.tryExecuteSql(sql)
+				var repairAttempts = 0
+				while repairAttempts < 2 and (queryResult.ok == false or queryResult.rows.length == 0)
+					repairAttempts = repairAttempts + 1
+					sql = sqlRepairGenerator({
+						datasetDescription: datasetDescription,
+						schemaSummary: schemaSummary,
+						elementType: element.type,
+						dataRequest: element.dataRequest,
+						previousSql: sql,
+						failureReason: queryResult.error if queryResult.ok == false else "The query returned zero rows.",
+						repairAttempt: repairAttempts
+					}).text
+					queryResult = database.tryExecuteSql(sql)
+				endwhile
+				rows = queryResult.rows
 				element.previewJson = generatePreviewJson(rows)
 				if element.type == "insight"
 					element.contentHtml = textInsightGenerator({

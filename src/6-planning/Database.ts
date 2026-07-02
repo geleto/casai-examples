@@ -28,6 +28,12 @@ interface IndexColumnInfo {
 	name: string;
 }
 
+export interface SqlExecutionResult {
+	ok: boolean;
+	rows: unknown[];
+	error?: string;
+}
+
 export class Database {
 	private db!: Sqlite.Database;
 
@@ -181,16 +187,27 @@ export class Database {
 		};
 	}
 
-	executeSql(sql: string): [] {
+	tryExecuteSql(sql: string): SqlExecutionResult {
 		console.log(`[Database] Executing SQL:\n${sql}\n`);
 		const db = this.getDb();
 		try {
-			return db.prepare(sql).all() as [];
+			return {
+				ok: true,
+				rows: db.prepare(sql).all() as unknown[],
+			};
 		} catch (err: unknown) {
 			const errorMessage = err instanceof Error ? err.message : String(err);
 			console.error(`SQL Execution failed: ${errorMessage}`);
-			return [];
+			return {
+				ok: false,
+				rows: [],
+				error: errorMessage,
+			};
 		}
+	}
+
+	executeSql(sql: string): unknown[] {
+		return this.tryExecuteSql(sql).rows;
 	}
 
 	close(): void {
