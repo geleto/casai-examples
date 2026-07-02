@@ -25,6 +25,7 @@ Tables:
 - Use tables for ranked entities, drill-down detail, or comparisons with several columns.
 
 Rules:
+- Element ids must be lowercase DOM-safe ids prefixed with the type, such as `chart-revenue-by-country` or `table-top-items`.
 - Every element must set `usesData: true` and include a clear `dataRequest`.
 - `dataRequest` must describe what data to fetch, not SQL.
 - Do NOT generate HTML, JavaScript, or SQL.

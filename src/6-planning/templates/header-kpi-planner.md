@@ -25,5 +25,6 @@ KPIs:
 - Prefer numeric metrics. If a KPI identifies a top category and a measure, request both the category/name and the numeric measure.
 
 Rules:
+- KPI ids must be lowercase DOM-safe ids prefixed with `kpi-`, such as `kpi-total-count`.
 - `dataRequest` must describe what data to fetch, not SQL.
 - Do NOT generate HTML, JavaScript, or SQL.

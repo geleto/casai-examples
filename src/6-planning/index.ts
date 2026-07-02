@@ -141,8 +141,8 @@ function layoutElements(elements: ProcessedElement[]): LayoutElement[] {
 		});
 }
 
-function safeScriptText(value: string): string {
-	return value.replace(/<\/script/gi, '<\\/script');
+function normalizeElementId(type: string, id: string): string {
+	return `${type}-${id}`.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
 
 // ---------------------------------------------------------------------------
@@ -249,7 +249,7 @@ const dashboardProcessor = create.Script({
 			}
 		},
 		toJson: (value: unknown) => JSON.stringify(value, null, 2),
-		safeScriptText,
+		normalizeElementId,
 		datasetDescription: input.datasetDescription,
 		datasetName: input.datasetName,
 		userRequest: input.userRequest,
@@ -257,6 +257,7 @@ const dashboardProcessor = create.Script({
 	schema: processedDashboardSchema,
 	script: `
 		function processElement(element)
+			element.id = normalizeElementId(element.type, element.id)
 			var rows = []
 			if element.usesData and element.dataRequest
 				var sql = sqlFromRequestGenerator({
@@ -303,9 +304,9 @@ const dashboardProcessor = create.Script({
 			}).object
 			// Build dashboard fields after rendering so the renderer prompt is not filled with complete data.
 			element.html = renderedElement.html
-			element.script = safeScriptText(renderedElement.script.trim())
+			element.script = renderedElement.script.trim()
 			if element.usesData
-				element.dataJson = safeScriptText(toJson(element.id) ~ ": " ~ toJson(rows))
+				element.dataJson = toJson(element.id) ~ ": " ~ toJson(rows)
 			endif
 			return element
 		endfunction

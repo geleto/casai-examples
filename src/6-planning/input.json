@@ -1,7 +1,7 @@
 {
-	"activeScenario": "customer_revenue",
+	"activeScenario": "chinook_catalog_performance",
 	"scenarios": {
-		"sales_improvement": {
+		"chinook_sales_improvement": {
 			"name": "Chinook sales improvement",
 			"userRequest": "I need to know how to improve our sales",
 			"datasetName": "chinook",
@@ -9,7 +9,7 @@
 			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
 			"port": 3004
 		},
-		"customer_revenue": {
+		"chinook_customer_revenue": {
 			"name": "Chinook customer revenue",
 			"userRequest": "Show which customers, countries, and purchasing patterns drive the most revenue, and identify where we should focus account management.",
 			"datasetName": "chinook",
@@ -17,12 +17,60 @@
 			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
 			"port": 3004
 		},
-		"catalog_performance": {
+		"chinook_catalog_performance": {
 			"name": "Chinook catalog performance",
 			"userRequest": "Analyze our catalog performance by genre, artist, album, and track so we can prioritize content and promotion decisions.",
 			"datasetName": "chinook",
 			"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
 			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
+			"port": 3004
+		},
+		"lahman_team_eras": {
+			"name": "Lahman team eras",
+			"userRequest": "Explore how baseball team performance changed across eras, including wins, scoring, pitching, and standout seasons.",
+			"datasetName": "lahman",
+			"datasetDescription": "Lahman baseball archive SQLite database containing historical baseball statistics from 1871 through 2022, including teams, players, batting, pitching, fielding, awards, schools, salaries, and postseason records.",
+			"databaseUrl": "https://github.com/jknecht/baseball-archive-sqlite/releases/download/2022/lahman_1871-2022.sqlite",
+			"port": 3004
+		},
+		"lahman_player_careers": {
+			"name": "Lahman player careers",
+			"userRequest": "Analyze notable baseball player career patterns, including longevity, batting production, pitching records, awards, and Hall of Fame context.",
+			"datasetName": "lahman",
+			"datasetDescription": "Lahman baseball archive SQLite database containing historical baseball statistics from 1871 through 2022, including teams, players, batting, pitching, fielding, awards, schools, salaries, and postseason records.",
+			"databaseUrl": "https://github.com/jknecht/baseball-archive-sqlite/releases/download/2022/lahman_1871-2022.sqlite",
+			"port": 3004
+		},
+		"countries_global_profile": {
+			"name": "Countries global profile",
+			"userRequest": "Explore how countries differ across regions and subregions, including population, area, currencies, languages, timezones, and coordinates.",
+			"datasetName": "countries",
+			"datasetDescription": "Countries SQLite database with country-level geographic and reference data, including regions, subregions, capitals, currencies, languages, timezones, coordinates, phone codes, population, area, and related identifiers.",
+			"databaseUrl": "https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/sqlite/countries.sqlite3",
+			"port": 3004
+		},
+		"countries_timezones_languages": {
+			"name": "Countries timezones and languages",
+			"userRequest": "Analyze patterns in country languages, currencies, timezones, capitals, and regional geography to highlight unusual or diverse places.",
+			"datasetName": "countries",
+			"datasetDescription": "Countries SQLite database with country-level geographic and reference data, including regions, subregions, capitals, currencies, languages, timezones, coordinates, phone codes, population, area, and related identifiers.",
+			"databaseUrl": "https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/sqlite/countries.sqlite3",
+			"port": 3004
+		},
+		"superheroes_trait_patterns": {
+			"name": "Superheroes trait patterns",
+			"userRequest": "Explore superhero trait patterns across alignment, gender, publisher, height, weight, eye color, hair color, and identity details.",
+			"datasetName": "superheroes",
+			"datasetDescription": "Superheroes sample SQLite database containing character records with names, publishers, alignments, identity details, physical attributes, and appearance traits.",
+			"databaseUrl": "https://raw.githubusercontent.com/codecrafters-io/sample-sqlite-databases/master/superheroes.db",
+			"port": 3004
+		},
+		"superheroes_publishers_alignment": {
+			"name": "Superheroes publishers and alignment",
+			"userRequest": "Compare superhero publishers and alignments, highlighting character counts, distinctive traits, and unusual physical or appearance patterns.",
+			"datasetName": "superheroes",
+			"datasetDescription": "Superheroes sample SQLite database containing character records with names, publishers, alignments, identity details, physical attributes, and appearance traits.",
+			"databaseUrl": "https://raw.githubusercontent.com/codecrafters-io/sample-sqlite-databases/master/superheroes.db",
 			"port": 3004
 		}
 	}

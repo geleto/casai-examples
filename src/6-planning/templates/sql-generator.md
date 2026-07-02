@@ -26,6 +26,8 @@ Your task:
 - With `UNION` or `UNION ALL`, order only by output columns/aliases, or wrap the union in a subquery.
 - Do not put `ORDER BY` or `LIMIT` inside individual `UNION` branches unless that branch is wrapped as a subquery.
 - Prefer reasonably small result sets suitable for previews (use LIMIT when appropriate).
+- If the dashboard element type is `chart` and the result is grouped by named categories such as countries, genres, artists, customers, teams, publishers, or languages, order by the main metric and use `LIMIT 12`.
+- If the dashboard element type is `table`, use `LIMIT 20` unless the request clearly needs fewer rows.
 - If the dashboard element type is `insight`, the query result will feed a data-backed insight card:
   - Return compact aggregate or ranked evidence, not broad raw rows.
   - Order rows by likely business importance for the request so the most useful evidence appears first.

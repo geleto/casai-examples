@@ -21,6 +21,9 @@
 			width: 100%;
 			height: 100%;
 		}
+		.dashboard-element .card > :not(.card-body) {
+			margin: 0 var(--bs-card-spacer-x) var(--bs-card-spacer-y);
+		}
 		.dashboard-element-table .card-body {
 			display: flex;
 			flex-direction: column;
@@ -64,7 +67,9 @@
 					</div>
 				</div>
 {% else %}
+				<template data-dashboard-element-template="{{ element.id | escape }}">
 {{ element.html | safe }}
+				</template>
 {% endif %}
 			</div>
 {% endfor %}
@@ -75,12 +80,19 @@
 	window.dashboardData = {
 {% for element in elements %}
 {% if element.dataJson %}
-		{{ element.dataJson | safe }},
+		{{ element.dataJson | replace(r/<\/script/gi, "<\\/script") | safe }},
 {% endif %}
 {% endfor %}
 	};
 
 document.addEventListener('DOMContentLoaded', () => {
+	for (const template of document.querySelectorAll('template[data-dashboard-element-template]')) {
+		const target = document.getElementById(template.dataset.dashboardElementTemplate);
+		if (target) {
+			target.replaceChildren(template.content.cloneNode(true));
+		}
+	}
+
 	const getData = (key) => window.dashboardData?.[key] ?? [];
 	const firstRow = (key) => {
 		const rows = getData(key);
@@ -101,17 +113,31 @@ document.addEventListener('DOMContentLoaded', () => {
 	const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({
 		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 	}[char]));
+	const elementScripts = [
 {% for element in elements %}
 {% if element.script %}
-	try {
-		(() => {
-{{ element.script | safe }}
-		})();
-	} catch (error) {
-		console.error('Dashboard element failed:', "{{ element.id }}", error);
-	}
+		{
+			id: {{ element.id | dump | safe }},
+			script: {{ element.script | replace(r/<\/script/gi, "<\\/script") | dump | safe }},
+		},
 {% endif %}
 {% endfor %}
+	];
+	for (const elementScript of elementScripts) {
+		try {
+			new Function(
+				'getData',
+				'firstRow',
+				'formatNumber',
+				'formatCurrency',
+				'formatPercent',
+				'escapeHtml',
+				elementScript.script
+			)(getData, firstRow, formatNumber, formatCurrency, formatPercent, escapeHtml);
+		} catch (error) {
+			console.error('Dashboard element failed:', elementScript.id, error);
+		}
+	}
 });
 	</script>
 </body>

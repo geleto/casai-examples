@@ -26,5 +26,6 @@ Static guide text:
 - Do not create placeholders such as "recommendations will appear later", "insights pending", or "analysis unavailable".
 
 Rules:
+- Element ids must be lowercase DOM-safe ids prefixed with the type, such as `insight-country-patterns` or `text-reading-guide`.
 - `dataRequest` must describe what data to fetch, not SQL.
 - Do NOT generate HTML, JavaScript, or SQL.
