@@ -52,7 +52,20 @@
 		<div class="row g-3">
 {% for element in elements %}
 			<div id="{{ element.id | escape }}" class="{{ element.columnClass }} dashboard-element dashboard-element-{{ element.type | escape }}">
+{% if element.queryError %}
+				<div class="card h-100 border-danger-subtle">
+					<div class="card-body">
+						<h6 class="card-title fw-semibold mb-1">{{ element.title | escape }}</h6>
+						<p class="text-muted small mb-3">{{ element.description | escape }}</p>
+						<div class="alert alert-danger mb-0" role="alert">
+							<div class="fw-semibold mb-1">Data unavailable</div>
+							<code class="small text-break">{{ element.queryError | escape }}</code>
+						</div>
+					</div>
+				</div>
+{% else %}
 {{ element.html | safe }}
+{% endif %}
 			</div>
 {% endfor %}
 		</div>

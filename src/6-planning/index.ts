@@ -86,8 +86,9 @@ const renderedElementSchema = z.object({
 const processedElementSchema = dashboardElementSchema.extend({
 	previewJson: z.string().optional(),
 	contentHtml: z.string().optional(),
-	html: z.string(),
-	script: z.string(),
+	queryError: z.string().optional(),
+	html: z.string().optional(),
+	script: z.string().optional(),
 	dataJson: z.string().optional(),
 });
 
@@ -272,6 +273,10 @@ const dashboardProcessor = create.Script({
 				endwhile
 				rows = queryResult.rows
 				element.previewJson = generatePreviewJson(rows)
+				if queryResult.ok == false or (element.type == "chart" and rows.length == 0)
+					element.queryError = queryResult.error if queryResult.ok == false else "The query returned zero rows."
+					return element
+				endif
 				if element.type == "insight"
 					element.contentHtml = textInsightGenerator({
 						datasetName: datasetName,
