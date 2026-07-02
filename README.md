@@ -169,6 +169,8 @@ Demonstrates an AI agent that builds a complete data dashboard for any SQLite da
 - **Schema Analysis**: Analyzes database structure to understand available data.
 - **Code Generation**: Dynamically generates SQL and HTML based on requirements.
 
+Edit `src/6-planning/input.json` to switch dashboard scenarios. Set `activeScenario` to one of the keys in the `scenarios` object.
+
 <!---
 
 ### Example 7: Multi-Agent

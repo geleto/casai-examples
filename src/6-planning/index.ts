@@ -30,14 +30,23 @@ import path from 'path';
 import { Database } from './Database';
 
 import inputJson from './input.json';
-interface PlanningInput {
+interface PlanningScenario {
+	name: string;
 	userRequest: string;
 	datasetName: string;
 	datasetDescription: string;
 	databaseUrl: string;
 	port: number;
 }
-const input: PlanningInput = inputJson;
+
+const inputFile: {
+	activeScenario: string;
+	scenarios: Record<string, PlanningScenario>;
+} = inputJson;
+const input = inputFile.scenarios[inputFile.activeScenario];
+if (!input) {
+	throw new Error(`input.json activeScenario "${inputFile.activeScenario}" was not found.`);
+}
 
 const BASE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_HTML = path.join(BASE_DIR, 'dashboard.html');
@@ -322,6 +331,7 @@ const dashboardProcessor = create.Script({
 });
 
 console.log('PLANNING PATTERN EXAMPLE\nDemonstrates an AI agent that creates a data dashboard by first planning the layout and data requirements, then executing that plan.\n');
+console.log(`Scenario "${inputFile.activeScenario}": ${input.name}`);
 console.log(`User request: ${input.userRequest}\n Dataset: ${input.datasetName}`);
 
 // 1. Initialize database

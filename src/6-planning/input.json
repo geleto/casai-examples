@@ -1,7 +1,29 @@
 {
-	"userRequest": "I need to know how to improve our sales",
-	"datasetName": "chinook",
-	"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
-	"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
-	"port": 3004
+	"activeScenario": "customer_revenue",
+	"scenarios": {
+		"sales_improvement": {
+			"name": "Chinook sales improvement",
+			"userRequest": "I need to know how to improve our sales",
+			"datasetName": "chinook",
+			"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
+			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
+			"port": 3004
+		},
+		"customer_revenue": {
+			"name": "Chinook customer revenue",
+			"userRequest": "Show which customers, countries, and purchasing patterns drive the most revenue, and identify where we should focus account management.",
+			"datasetName": "chinook",
+			"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
+			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
+			"port": 3004
+		},
+		"catalog_performance": {
+			"name": "Chinook catalog performance",
+			"userRequest": "Analyze our catalog performance by genre, artist, album, and track so we can prioritize content and promotion decisions.",
+			"datasetName": "chinook",
+			"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
+			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
+			"port": 3004
+		}
+	}
 }
