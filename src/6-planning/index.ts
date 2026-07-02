@@ -61,14 +61,11 @@ const layoutPriority = {
 };
 
 function columnClass(element: types.ProcessedElement, metricIndex: number, metricCount: number, contentIndex: number, contentCount: number): string {
-	if (element.type == 'header') return 'col-12';
-	if (element.type != 'metric') {
-		const isLastOddItem = contentIndex == contentCount - 1 && (contentCount - 1) % 2 == 1;
-		return contentIndex == 0 || isLastOddItem ? 'col-12' : 'col-12 col-md-6';
-	}
-	if (metricCount == 2 || metricCount == 4 || (metricCount == 5 && metricIndex < 2)) {
-		return 'col-12 col-md-6';
-	}
+	const isLastOddContentItem = element.type != 'metric' && contentIndex == contentCount - 1 && (contentCount - 1) % 2 == 1;
+	const isFullWidth = element.type == 'header' || (element.type != 'metric' && (contentIndex == 0 || isLastOddContentItem));
+	const isHalfWidth = element.type != 'metric' || metricCount == 2 || metricCount == 4 || (metricCount == 5 && metricIndex < 2);
+	if (isFullWidth) return 'col-12';
+	if (isHalfWidth) return 'col-12 col-md-6';
 	return metricCount > 5 ? 'col-12 col-md-6 col-xl-4' : 'col-12 col-md-4';
 }
 
