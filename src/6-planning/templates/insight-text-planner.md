@@ -9,7 +9,7 @@ You receive:
 
 Your job:
 - Output 1-2 `insight` elements and optionally 1 `text` element.
-- Do not output header, KPI, chart, table, or other elements.
+- Do not output header, metric, chart, table, or other elements.
 - Do not let insight or text elements crowd out core visualizations.
 
 Insights:
@@ -26,6 +26,8 @@ Static guide text:
 - Do not create placeholders such as "recommendations will appear later", "insights pending", or "analysis unavailable".
 
 Rules:
-- Element ids must be lowercase DOM-safe ids prefixed with the type, such as `insight-country-patterns` or `text-reading-guide`.
+- Element ids must be short lowercase DOM-safe ids without the type prefix, such as `country-patterns` or `reading-guide`.
+- Only plan insights and text using tables, columns, and dimensions visible in the schema summary.
+- If the user request or dataset description mentions a field that is absent from the schema summary, ignore that field instead of inventing a substitute.
 - `dataRequest` must describe what data to fetch, not SQL.
 - Do NOT generate HTML, JavaScript, or SQL.

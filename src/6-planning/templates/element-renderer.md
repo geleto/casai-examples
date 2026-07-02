@@ -28,15 +28,16 @@ Rules:
 - Use Chart.js 4 syntax. In `options.scales`, use scale ids like `x`, `y`, and optionally `x2`; never use old `xAxes` or `yAxes` arrays.
 - For bar charts with more than 4 named categories, such as countries, genres, artists, customers, teams, publishers, or languages, use a horizontal bar chart with `indexAxis: "y"` so labels remain readable.
 - For named-category charts, display at most the first 12 ordered rows with `.slice(0, 12)` before building labels and datasets.
+- Each row used in a chart must produce one visible label. Do not de-duplicate labels with `filter`, `indexOf`, `Set`, or `find`; if labels repeat, aggregate them in JavaScript before plotting or render a table instead.
 - For horizontal bar charts, category labels belong on `scales.y`; do not set `yAxisID` on datasets unless creating multiple category axes. For a second numeric axis, use `xAxisID` and define an `x2` scale.
 - For horizontal bar charts, hide the legend when there is only one dataset and keep category labels on the y-axis without rotation.
-- If a chart's `previewJson` has fewer than 2 rows, do not render a Chart.js chart; render the values as a compact KPI/table-style card instead.
+- If a chart's `previewJson` has fewer than 2 rows, do not render a Chart.js chart; render the values as a compact metric/table-style card instead.
 - For `table`: include a table with `<tbody>` and script that fills rows from `getData("<element id>")`.
-- For `kpi`: use this visual hierarchy: title first as `<h6 class="card-title fw-semibold mb-1">`, description second as muted small text, value third as the largest/boldest text. Never bold the description, make it larger than the title, or place it where it reads as the heading. Do not add decorative icons.
-- KPI script must read the first row from `getData("<element id>")` and update a visible placeholder whose id ends with `-value`.
-- Numeric KPI values must use class `kpi-value-number`; the dashboard template controls their size.
-- If a KPI has both a category/name and a numeric measure, put the numeric measure in the `-value` placeholder with `kpi-value-number`, and put the category/name in a small muted `-label` placeholder. Do not join them with a dash.
-- Do not use inline font-size styles for KPI values.
+- For `metric`: use this visual hierarchy: title first as `<h6 class="card-title fw-semibold mb-1">`, description second as muted small text, value third as the largest/boldest text. Never bold the description, make it larger than the title, or place it where it reads as the heading. Do not add decorative icons.
+- Metric script must read the first row from `getData("<element id>")` and update a visible placeholder whose id ends with `-value`.
+- Numeric metric values must use class `metric-value-number`; the dashboard template controls their size.
+- If a metric has both a category/name and a numeric measure, put the numeric measure in the `-value` placeholder with `metric-value-number`, and put the category/name in a small muted `-label` placeholder. Do not join them with a dash.
+- Do not use inline font-size styles for metric values.
 - For `insight`: render the provided `contentHtml` exactly in the card body; use `script: ""`.
 - For `text`: render static explanatory content only; use `script: ""`.
 - For `other`: render a simple card; script only if data-backed.

@@ -29,6 +29,7 @@ Your task:
 - If the previous query returned zero rows, broaden or correct joins, filters, date logic, grouping, or ordering where reasonable.
 - Only use tables and columns that appear in the schema summary.
 - Use the exact table and column names from the schema summary.
+- Do not repair a missing column by substituting an unrelated column, constant value, or alias that still claims to measure the missing field.
 - Use SQLite syntax only; avoid functions from other databases.
 - Do not use `PERCENTILE_CONT`, `PERCENTILE_DISC`, or `WITHIN GROUP`; they are not portable SQLite syntax.
 - For value tiers or quartiles, use SQLite window functions such as `NTILE(4) OVER (ORDER BY metric)` or `ROW_NUMBER()` plus counts.
@@ -38,6 +39,9 @@ Your task:
 - With `UNION` or `UNION ALL`, order only by output columns/aliases, or wrap the union in a subquery.
 - Do not put `ORDER BY` or `LIMIT` inside individual `UNION` branches unless that branch is wrapped as a subquery.
 - Prefer reasonably small result sets suitable for previews (use LIMIT when appropriate).
+- If the dashboard element type is `metric`, return exactly one row for one headline value. Use one aggregate row, or `ORDER BY` the main metric with `LIMIT 1` for a top/best category plus its numeric measure. Do not return grouped category comparisons.
+- If the dashboard element type is `chart` and the request compares values by a group such as era, decade, region, country, genre, artist, team, publisher, or language, return one row per displayed group. Use `GROUP BY` on the displayed group label or an equivalent subquery/CTE, and aggregate every metric column for that group.
+- Do not return raw rows with repeated chart labels for grouped chart requests; repeated labels can collapse into too few plotted points.
 - If the dashboard element type is `chart` and the result is grouped by named categories such as countries, genres, artists, customers, teams, publishers, or languages, order by the main metric and use `LIMIT 12`.
 - If the dashboard element type is `table`, use `LIMIT 20` unless the request clearly needs fewer rows.
 - If the dashboard element type is `insight`, return compact aggregate or ranked evidence, not broad raw rows.

@@ -6,7 +6,7 @@
  *
  * HOW IT WORKS:
  * 1. Generate a schema summary by inspecting the SQLite database
- * 2. Run three planner agents in parallel for KPIs, visuals, and insights
+ * 2. Run three planner agents in parallel for metrics, visuals, and insights
  * 3. Each planned element is processed as soon as its planner section is ready
  * 4. For each data-backed element, generate and execute SQL to fetch the needed data
  * 5. Insight elements are converted into concise data-backed HTML
@@ -68,15 +68,15 @@ function openInBrowser(url: string): void {
 
 const dashboardElementSchema = z.object({
 	id: z.string().describe('Unique identifier for the element'),
-	type: z.enum(['header', 'chart', 'table', 'text', 'insight', 'kpi', 'other']).describe('Type of dashboard element'),
+	type: z.enum(['header', 'metric', 'chart', 'table', 'text', 'insight', 'other']).describe('Type of dashboard element'),
 	title: z.string().describe('Display title for the element'),
 	description: z.string().describe('Brief description of what this element shows'),
 	usesData: z.boolean().describe('Whether this element requires data fetching'),
 	dataRequest: z.string().optional().describe('Natural language description of needed data (if usesData is true)'),
 });
 
-const headerKpiElementSchema = dashboardElementSchema.extend({
-	type: z.enum(['header', 'kpi']),
+const headerMetricElementSchema = dashboardElementSchema.extend({
+	type: z.enum(['header', 'metric']),
 });
 const visualElementSchema = dashboardElementSchema.extend({
 	type: z.enum(['chart', 'table']),
@@ -87,7 +87,7 @@ const insightTextElementSchema = dashboardElementSchema.extend({
 
 const renderedElementSchema = z.object({
 	id: z.string(),
-	type: z.enum(['header', 'chart', 'table', 'text', 'insight', 'kpi', 'other']),
+	type: z.enum(['header', 'metric', 'chart', 'table', 'text', 'insight', 'other']),
 	html: z.string().describe('HTML fragment with no row/column wrapper'),
 	script: z.string().describe('Raw JavaScript statements to run inside an existing DOMContentLoaded listener. Use an empty string if none.'),
 });
@@ -109,30 +109,30 @@ interface LayoutElement extends ProcessedElement {
 }
 
 const layoutPriority = {
-	header: 0, kpi: 1, chart: 2, table: 3, insight: 4, text: 5, other: 6,
+	header: 0, metric: 1, chart: 2, table: 3, insight: 4, text: 5, other: 6,
 };
 
-function columnClass(element: ProcessedElement, kpiIndex: number, kpiCount: number, contentIndex: number, contentCount: number): string {
+function columnClass(element: ProcessedElement, metricIndex: number, metricCount: number, contentIndex: number, contentCount: number): string {
 	if (element.type == 'header') return 'col-12';
-	if (element.type != 'kpi') {
+	if (element.type != 'metric') {
 		const isLastOddItem = contentIndex == contentCount - 1 && (contentCount - 1) % 2 == 1;
 		return contentIndex == 0 || isLastOddItem ? 'col-12' : 'col-12 col-md-6';
 	}
-	if (kpiCount == 2 || kpiCount == 4 || (kpiCount == 5 && kpiIndex < 2)) {
+	if (metricCount == 2 || metricCount == 4 || (metricCount == 5 && metricIndex < 2)) {
 		return 'col-12 col-md-6';
 	}
-	return kpiCount > 5 ? 'col-12 col-md-6 col-xl-4' : 'col-12 col-md-4';
+	return metricCount > 5 ? 'col-12 col-md-6 col-xl-4' : 'col-12 col-md-4';
 }
 
 function layoutElements(elements: ProcessedElement[]): LayoutElement[] {
-	const kpiCount = elements.filter(element => element.type == 'kpi').length;
-	const contentCount = elements.filter(element => element.type != 'header' && element.type != 'kpi').length;
-	let kpiIndex = 0, contentIndex = 0;
+	const metricCount = elements.filter(element => element.type == 'metric').length;
+	const contentCount = elements.filter(element => element.type != 'header' && element.type != 'metric').length;
+	let metricIndex = 0, contentIndex = 0;
 	return [...elements]
 		.sort((a, b) => layoutPriority[a.type] - layoutPriority[b.type])
 		.map(element => {
-			const column = columnClass(element, kpiIndex, kpiCount, contentIndex, contentCount);
-			if (element.type == 'kpi') kpiIndex++;
+			const column = columnClass(element, metricIndex, metricCount, contentIndex, contentCount);
+			if (element.type == 'metric') metricIndex++;
 			else if (element.type != 'header') contentIndex++;
 			return {
 				...element,
@@ -155,9 +155,9 @@ const plannerConfig = create.Config({
 	output: 'array',
 });
 
-const headerKpiPlanner = create.ObjectStreamer.loadsTemplate({
-	prompt: 'header-kpi-planner.md',
-	schema: headerKpiElementSchema,
+const headerMetricPlanner = create.ObjectStreamer.loadsTemplate({
+	prompt: 'header-metric-planner.md',
+	schema: headerMetricElementSchema,
 }, plannerConfig);
 
 const visualPlanner = create.ObjectStreamer.loadsTemplate({
@@ -227,7 +227,7 @@ const schemaSummaryTemplate = create.Template.loadsTemplate({
 // ---------------------------------------------------------------------------
 const dashboardProcessor = create.Script({
 	context: {
-		headerKpiPlanner,
+		headerMetricPlanner,
 		visualPlanner,
 		insightTextPlanner,
 		sqlFromRequestGenerator,
@@ -318,12 +318,12 @@ const dashboardProcessor = create.Script({
 			schemaSummary: schemaSummary
 		}
 
-		var headerKpis = headerKpiPlanner(plannerInput).elementStream
+		var headerMetrics = headerMetricPlanner(plannerInput).elementStream
 		var chartsTables = visualPlanner(plannerInput).elementStream
 		var insightsText = insightTextPlanner(plannerInput).elementStream
 
 		data processedElements = []
-		for section in [headerKpis, chartsTables, insightsText]
+		for section in [headerMetrics, chartsTables, insightsText]
 			for element in section
 				processedElements.push(processElement(element))
 			endfor

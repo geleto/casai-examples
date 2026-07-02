@@ -1,5 +1,5 @@
 {
-	"activeScenario": "chinook_catalog_performance",
+	"activeScenario": "superheroes_trait_patterns",
 	"scenarios": {
 		"chinook_sales_improvement": {
 			"name": "Chinook sales improvement",
@@ -59,17 +59,17 @@
 		},
 		"superheroes_trait_patterns": {
 			"name": "Superheroes trait patterns",
-			"userRequest": "Explore superhero trait patterns across alignment, gender, publisher, height, weight, eye color, hair color, and identity details.",
+			"userRequest": "Explore superhero trait patterns across eye color, hair color, appearance counts, first appearance timing, and character-name identity details.",
 			"datasetName": "superheroes",
-			"datasetDescription": "Superheroes sample SQLite database containing character records with names, publishers, alignments, identity details, physical attributes, and appearance traits.",
+			"datasetDescription": "Superheroes sample SQLite database containing character names, eye color, hair color, appearance counts, first appearance text, and first appearance year.",
 			"databaseUrl": "https://raw.githubusercontent.com/codecrafters-io/sample-sqlite-databases/master/superheroes.db",
 			"port": 3004
 		},
-		"superheroes_publishers_alignment": {
-			"name": "Superheroes publishers and alignment",
-			"userRequest": "Compare superhero publishers and alignments, highlighting character counts, distinctive traits, and unusual physical or appearance patterns.",
+		"superheroes_appearance_history": {
+			"name": "Superheroes appearance history",
+			"userRequest": "Analyze when superheroes first appeared and how appearance counts vary by decade, eye color, hair color, and name patterns.",
 			"datasetName": "superheroes",
-			"datasetDescription": "Superheroes sample SQLite database containing character records with names, publishers, alignments, identity details, physical attributes, and appearance traits.",
+			"datasetDescription": "Superheroes sample SQLite database containing character names, eye color, hair color, appearance counts, first appearance text, and first appearance year.",
 			"databaseUrl": "https://raw.githubusercontent.com/codecrafters-io/sample-sqlite-databases/master/superheroes.db",
 			"port": 3004
 		}
