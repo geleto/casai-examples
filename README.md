@@ -173,23 +173,23 @@ Edit `src/6-planning/input.json` to switch dashboard scenarios. Set `activeScena
 
 <!---
 
-### Example 7: Multi-Agent
+### Example 8: Multi-Agent
 TODO
-### Example 8: Memory Management
+### Example 9: Memory Management
 TODO
-### Example 9: Learning and Adaptation
+### Example 10: Learning and Adaptation
 TODO
-### Example 10: Model Context Protocol (MCP)
+### Example 11: Model Context Protocol (MCP)
 TODO
-### Example 11: Goal Setting and Monitoring
+### Example 12: Goal Setting and Monitoring
 TODO
-### Example 12: Exception Handling and Recovery
+### Example 13: Exception Handling and Recovery
 TODO
-### Example 13: Human-in-the-Loop
+### Example 14: Human-in-the-Loop
 TODO
 --->
 
-### Example 14: RAG ([src/14-rag/index.ts](src/14-rag/index.ts))
+### Example 7: RAG ([src/7-rag/index.ts](src/7-rag/index.ts))
 Answers questions about a document by retrieving vector matches, verifying their relevance with an LLM filter, and synthesizing an answer from verified chunks.
 Demonstrates a Retrieval-Augmented Generation system with agentic filtering.
 - **RAG Pattern**: Combines document retrieval with generation for accurate, grounded answers.

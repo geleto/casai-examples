@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const pathsToDelete = [
-	path.join(__dirname, '../src/14-rag/vectra_index'),
+	path.join(__dirname, '../src/7-rag/vectra_index'),
 	path.join(__dirname, '../src/6-planning/database'),
 	path.join(__dirname, '../src/6-planning/dashboard.html'),
 ];
