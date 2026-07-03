@@ -19,6 +19,7 @@ Your task:
 - Use the exact table and column names from the schema summary.
 - Do not invent missing columns, placeholder categories, or aliases that claim to measure an unavailable field.
 - Use SQLite syntax only; avoid functions from other databases.
+- Prefer direct, readable SQL. Use advanced statistics when they materially improve the requested analysis and can be expressed reliably in SQLite.
 - Do not use `PERCENTILE_CONT`, `PERCENTILE_DISC`, or `WITHIN GROUP`; they are not portable SQLite syntax.
 - For value tiers or quartiles, use SQLite window functions such as `NTILE(4) OVER (ORDER BY metric)` or `ROW_NUMBER()` plus counts.
 - Do not use window functions in `WHERE`, `GROUP BY`, or `HAVING`. Compute window values in a CTE/subquery, then filter them in an outer `SELECT`.
