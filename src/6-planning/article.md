@@ -2,7 +2,11 @@
 
 > **Note:** This is a short, high-level overview - the full tutorial is still a work in progress.
 
-Give the agent a plain-English request and a the URL of a SQLite database fiel, and it builds a full interactive HTML dashboard - metrics, charts, tables, and written insights. The request can be anything the data supports: "help me improve our sales" over a music store's catalog, or "show how baseball team performance changed across eras" over a century of stats. It starts by planning what to show, then fetches the data and renders each card - but the interesting part is everything it takes to get there cheaply and reliably. This started as a "planning" example and ended up being a small tour of agentic patterns working together.
+## What this AI agent example does
+
+Give the agent a plain-English request and the URL of a SQLite database file, and it builds a full interactive HTML dashboard - metrics, charts, tables, and written insights. The request can be anything the data supports: "help me improve our sales" over a music store's catalog, or "show how baseball team performance changed across eras" over a century of stats. It starts by planning what to show, then fetches the data and renders each card - but the interesting part is everything it takes to get there cheaply and reliably. This started as a "planning" example and ended up being a small tour of agentic patterns working together.
+
+## How it's done
 
 The obvious way to build this is to hand a top-tier model a set of database tools and let it loop - inspect the schema, run queries, write HTML - until it's done. That works, but it's slow and expensive: every step waits on one big, pricey model, and each turn drags the whole growing conversation along with it.
 
@@ -12,11 +16,11 @@ This tutorial takes a different approach. The job is split into small, well-defi
 
 Every dashboard below was produced by the same code - only the request and the database changed:
 
-- **[Catalog Performance Analysis](examples/catalog-perfomance.html)** - Chinook music store: genre, artist, album, and track performance to guide content and promotion decisions.
-- **[Rental and Payment Activity Overview](examples/rental-activity.html)** - Sakila DVD-rental store: where rental and payment activity concentrates across stores, customers, and staff.
-- **[Film Catalog Demand Overview](examples/film-demand.html)** - Sakila films: demand by category, rating, rental terms, and actors.
-- **[Baseball Team Performance Across Eras](examples/basebal-perfomance.html)** - Lahman archive: how team wins, scoring, and pitching shifted over 150 years.
-- **[Taxonomic Coverage Overview](examples/taxonomic-coverage.html)** - ITIS taxonomy: how organism records spread across kingdoms, ranks, and hierarchy depth.
+- **[Catalog Performance Analysis](https://raw.githack.com/geleto/casai-examples/main/src/6-planning/examples/catalog-perfomance.html)** - Chinook music store: genre, artist, album, and track performance to guide content and promotion decisions.
+- **[Rental and Payment Activity Overview](https://raw.githack.com/geleto/casai-examples/main/src/6-planning/examples/rental-activity.html)** - Sakila DVD-rental store: where rental and payment activity concentrates across stores, customers, and staff.
+- **[Film Catalog Demand Overview](https://raw.githack.com/geleto/casai-examples/main/src/6-planning/examples/film-demand.html)** - Sakila films: demand by category, rating, rental terms, and actors.
+- **[Baseball Team Performance Across Eras](https://raw.githack.com/geleto/casai-examples/main/src/6-planning/examples/basebal-perfomance.html)** - Lahman archive: how team wins, scoring, and pitching shifted over 150 years.
+- **[Taxonomic Coverage Overview](https://raw.githack.com/geleto/casai-examples/main/src/6-planning/examples/taxonomic-coverage.html)** - ITIS taxonomy: how organism records spread across kingdoms, ranks, and hierarchy depth.
 
 ## The building blocks
 
