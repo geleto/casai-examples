@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<title>Film Catalog Demand Overview</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css" rel="stylesheet" />
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+	<style>
+		.dashboard-container {
+			max-width: 1480px;
+		}
+		.dashboard-element, .dashboard-element > .card, .dashboard-element .card-body {
+			min-width: 0;
+		}
+		.dashboard-element {
+			display: flex;
+			align-items: stretch;
+			flex-direction: column;
+		}
+		.dashboard-element > * {
+			flex: 1 1 auto;
+			min-width: 0;
+			width: 100%;
+			height: 100%;
+		}
+		.dashboard-element .card > :not(.card-body) {
+			margin: 0 var(--bs-card-spacer-x) var(--bs-card-spacer-y);
+		}
+		.dashboard-element-table .card-body {
+			display: flex;
+			flex-direction: column;
+		}
+		.dashboard-element-table .table-responsive {
+			max-height: 360px;
+			overflow: auto;
+		}
+		.dashboard-element-metric .metric-value-number {
+			display: block;
+			margin-top: 0.75rem;
+			font-size: 2.5rem !important;
+			font-weight: 700 !important;
+			line-height: 1.1;
+		}
+		.dashboard-element-header + .dashboard-element-metric .metric-value-number {
+			font-size: 3rem !important;
+		}
+		.dashboard-element-metric [id$="-label"] {
+			margin-top: 0.25rem;
+			color: var(--bs-secondary-color);
+			font-size: 0.875rem;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container dashboard-container my-4">
+		<div class="row g-3">
+
+			<div id="header-dashboard-header" class="col-12 dashboard-element dashboard-element-header">
+
+				<template data-dashboard-element-template="header-dashboard-header">
+<div class="mb-3"><h2 class="h4 mb-1">Film Catalog Demand Overview</h2><p class="text-muted mb-0">Use the metrics below to quickly compare which catalog attributes are most associated with demand and inventory availability.</p></div>
+				</template>
+
+			</div>
+
+			<div id="metric-top-category" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-top-category">
+<div class="card h-100"><div class="card-body"><div><h6 class="card-title fw-semibold mb-1">Top Category by Films</h6><div id="metric-top-category-label" class="text-muted small">&nbsp;</div><div id="metric-top-category-value" class="metric-value-number">&nbsp;</div></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-top-rating" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-top-rating">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Most Common Rating</h6><div class="text-muted small mb-2">The rating appearing most often across the film catalog.</div><div class="d-flex flex-column"><div class="text-muted small" id="metric-top-rating-label">PG-13</div><div class="metric-value-number" id="metric-top-rating-value">223</div></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-avg-rental-duration" class="col-12 col-md-4 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-avg-rental-duration">
+<div class="card h-100"><div class="card-body"><div><h6 class="card-title fw-semibold mb-1">Average Rental Duration</h6><div class="text-muted small mb-2">The overall average rental duration across all films.</div><div class="d-flex align-items-baseline gap-2"><div id="metric-avg-rental-duration-value" class="metric-value-number">—</div><div id="metric-avg-rental-duration-label" class="text-muted small"> </div></div></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-avg-replacement-cost" class="col-12 col-md-4 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-avg-replacement-cost">
+<div class="card h-100"><div class="card-body"><div class="mb-2"><h6 class="card-title fw-semibold mb-1">Average Replacement Cost</h6><div class="text-muted small">The overall average replacement cost across all films.</div></div><div id="metric-avg-replacement-cost-label" class="text-muted small"></div><div id="metric-avg-replacement-cost-value" class="metric-value-number">—</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-inventory-count" class="col-12 col-md-4 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-inventory-count">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Total Inventory Copies</h6><div id="metric-inventory-count-label" class="text-muted small mb-2"></div><div id="metric-inventory-count-value" class="metric-value-number fw-bold">—</div><div class="small text-muted mt-2">The total number of inventory records available across all stores.</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-category-demand" class="col-12 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-category-demand">
+<div class="card h-100"><div class="card-body"><div><h6 class="card-title fw-semibold mb-1">Film Demand by Category</h6><div class="text-muted small">Ranked view of demand across film categories, showing which categories attract the most rentals and payments.</div></div><div style="position: relative; height: 420px; width: 100%;"><canvas id="chart-category-demand-canvas"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-rating-duration" class="col-12 col-md-6 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-rating-duration">
+<div class="card h-100"><div class="card-body"><div class="mb-2"><h6 class="card-title fw-semibold mb-1">Demand by Rating and Rental Duration</h6><div class="text-muted small">Shows how demand varies across film ratings and rental duration values to reveal viewing preferences.</div></div><div style="position: relative; height: 420px; width: 100%;"><canvas id="chart-rating-duration-canvas"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-cost-actor" class="col-12 col-md-6 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-cost-actor">
+<div class="card h-100"><div class="card-body"><div class="mb-3"><div class="d-flex align-items-start justify-content-between gap-3"><div><h6 class="card-title fw-semibold mb-1">Demand vs Replacement Cost and Actor Reach</h6><div class="text-muted small">Compares film demand against replacement cost and identifies how often actors appear in in-demand films.</div></div></div></div><div style="position: relative; height: 400px; width: 100%;"><canvas id="chart-cost-actor-canvas"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="table-store-inventory" class="col-12 col-md-6 dashboard-element dashboard-element-table">
+
+				<template data-dashboard-element-template="table-store-inventory">
+<div class="card h-100"><div class="card-body"><div class="mb-2"><div class="fw-semibold">Store Inventory and Film Coverage</div><div class="text-muted" style="font-size: 0.875rem;">Summarizes how inventory is distributed across stores and how much of each store’s stock is being rented.</div></div><div class="table-responsive" style="max-height: 420px; overflow: auto;"><table class="table table-sm table-hover mb-0 align-middle"><thead><tr><th scope="col">Store</th><th scope="col" class="text-end">Total inventory items</th><th scope="col" class="text-end">Distinct films in inventory</th><th scope="col" class="text-end">Total rentals</th><th scope="col" class="text-end">Rental utilization rate</th></tr></thead><tbody id="table-store-inventory-table-body"></tbody></table></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="table-top-films" class="col-12 col-md-6 dashboard-element dashboard-element-table">
+
+				<template data-dashboard-element-template="table-top-films">
+<div class="card h-100">
+  <div class="card-body">
+    <div class="d-flex flex-column gap-1">
+      <div>
+        <h6 class="card-title fw-semibold mb-1">Top Demand Films</h6>
+        <div class="text-muted small">Lists the films with the strongest viewing demand and their key catalog attributes for drill-down.</div>
+      </div>
+    </div>
+
+    <div class="table-responsive mt-3">
+      <table class="table table-sm align-middle mb-0" aria-describedby="table-top-films">
+        <thead>
+          <tr>
+            <th scope="col">Film</th>
+            <th scope="col">Category</th>
+            <th scope="col">Rating</th>
+            <th scope="col" class="text-end">Rentals</th>
+            <th scope="col" class="text-end">Duration</th>
+            <th scope="col" class="text-end">Replacement</th>
+            <th scope="col" class="text-end">Total Paid</th>
+          </tr>
+        </thead>
+        <tbody id="table-top-films-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+				</template>
+
+			</div>
+
+			<div id="insight-cat-demand" class="col-12 col-md-6 dashboard-element dashboard-element-insight">
+
+				<template data-dashboard-element-template="insight-cat-demand">
+<div class="card h-100"><div class="card-body"><div class="mb-2"><div class="d-flex flex-wrap align-items-start justify-content-between gap-2"><div><h5 class="card-title fw-semibold mb-1">Demand by category</h5><div class="text-muted small">Identify which film categories attract the most rentals and payment volume.</div></div></div></div><ul><li><strong>Sports</strong> leads by demand, with <strong>1,179 rentals</strong> and the highest payment total at <strong>$5,314.21</strong>.</li><li><strong>Animation</strong> and <strong>Action</strong> also show strong rental volume, at <strong>1,166</strong> and <strong>1,112</strong> rentals respectively, though both generate less payment than Sports.</li><li><strong>Sci-Fi</strong> stands out for revenue efficiency: it ranks fourth in rentals (<strong>1,101</strong>) but has a relatively high average payment per rental of <strong>$4.32</strong>, above several higher-volume categories.</li><li><strong>Comedy</strong> and <strong>New</strong> have some of the highest average payment per rental in the excerpt, at <strong>$4.66</strong> and <strong>$4.63</strong>, despite only mid-pack rental counts (~<strong>940</strong> rentals each).</li><li>Lower-demand categories in this excerpt include <strong>Horror</strong> (<strong>846</strong> rentals) and <strong>Music</strong> (<strong>830</strong> rentals), with total payments of <strong>$3,722.54</strong> and <strong>$3,417.72</strong> respectively.</li></ul></div></div>
+				</template>
+
+			</div>
+
+			<div id="insight-film-patterns" class="col-12 col-md-6 dashboard-element dashboard-element-insight">
+
+				<template data-dashboard-element-template="insight-film-patterns">
+<div class="card h-100"><div class="card-body"><h6 class="mb-1">Demand patterns by film attributes</h6><p class="text-muted small">Compare rental activity across rating, rental duration, replacement cost, and actor participation.</p><ul><li><strong>PG-13 and PG titles show the strongest rental volume</strong> in the excerpt, led by <span>PG-13 / 6 days / gte_25</span> with <span>359 rentals</span> and <span>PG / 4 days / 20_to_lt_25</span> with <span>305 rentals</span>.</li><li><strong>Shorter rental durations often pair with higher average payments</strong>: for example, <span>G / 3 days / gte_25</span> averages <span>5.38</span>, and <span>NC-17 / 3 days / 20_to_lt_25</span> averages the highest seen here at <span>5.67</span>.</li><li><strong>Lower replacement-cost bands tend to have lower average payments</strong> in several visible rows, especially <span>lt_15</span> entries such as <span>PG / 6 days</span> at <span>2.88</span> and <span>NC-17 / 6 days / gte_25</span> at <span>2.97</span>.</li><li><strong>Actor presence is uniformly “has_actor”</strong> in the excerpt, so there is no visible contrast yet between actor and non-actor titles; a fuller result would be needed to assess actor participation effects.</li><li><strong>Overall, demand appears concentrated in a few rating-duration combinations</strong>, with <span>PG, PG-13, R, and NC-17</span> all posting rental counts in the low-to-mid 200s or higher across the visible bands.</li></ul></div></div>
+				</template>
+
+			</div>
+
+			<div id="text-inventory-guide" class="col-12 dashboard-element dashboard-element-text">
+
+				<template data-dashboard-element-template="text-inventory-guide">
+<div class="p-3">
+  <div class="mb-3">
+    <h4 class="h5 mb-1">How to read this section</h4>
+    <div class="text-muted" style="white-space: normal;">This section focuses on catalog demand signals from rentals and payments, with inventory used to contextualize availability across stores.</div>
+  </div>
+  <div class="text-muted" style="line-height: 1.5;">
+    <ul class="mb-0 ps-3">
+      <li><strong>Demand signals:</strong> Look for patterns in rentals and payments to understand which catalog items are attracting usage.</li>
+      <li><strong>Inventory context:</strong> Use inventory levels to interpret whether demand is likely constrained by availability or supported by stock.</li>
+      <li><strong>Cross-store comparison:</strong> When values differ by store, treat inventory as a key lens for explaining why the same title/category may perform differently.</li>
+      <li><strong>Use these sections together:</strong> High demand with limited inventory may indicate an opportunity to rebalance or restock.</li>
+    </ul>
+  </div>
+</div>
+				</template>
+
+			</div>
+
+		</div>
+	</div>
+
+	<script>
+	window.dashboardData = {
+
+
+
+
+		"metric-top-category": [
+  {
+    "category_name": "Sports",
+    "film_count": 74
+  }
+],
+
+
+
+		"metric-top-rating": [
+  {
+    "rating": "PG-13",
+    "film_count": 223
+  }
+],
+
+
+
+		"metric-avg-rental-duration": [
+  {
+    "average_rental_duration": 4.985
+  }
+],
+
+
+
+		"metric-avg-replacement-cost": [
+  {
+    "avg_replacement_cost": 19.984
+  }
+],
+
+
+
+		"metric-inventory-count": [
+  {
+    "total_inventory_count": 4581
+  }
+],
+
+
+
+		"chart-category-demand": [
+  {
+    "category_name": "Sports",
+    "total_rentals": 1179,
+    "total_payment_amount": 5314.21,
+    "distinct_films_in_category": 73
+  },
+  {
+    "category_name": "Animation",
+    "total_rentals": 1166,
+    "total_payment_amount": 4656.3,
+    "distinct_films_in_category": 64
+  },
+  {
+    "category_name": "Action",
+    "total_rentals": 1112,
+    "total_payment_amount": 4375.85,
+    "distinct_films_in_category": 61
+  },
+  {
+    "category_name": "Sci-Fi",
+    "total_rentals": 1101,
+    "total_payment_amount": 4756.9800000000005,
+    "distinct_films_in_category": 59
+  },
+  {
+    "category_name": "Family",
+    "total_rentals": 1096,
+    "total_payment_amount": 4226.070000000001,
+    "distinct_films_in_category": 67
+  },
+  {
+    "category_name": "Drama",
+    "total_rentals": 1060,
+    "total_payment_amount": 4587.39,
+    "distinct_films_in_category": 61
+  },
+  {
+    "category_name": "Documentary",
+    "total_rentals": 1050,
+    "total_payment_amount": 4217.52,
+    "distinct_films_in_category": 63
+  },
+  {
+    "category_name": "Foreign",
+    "total_rentals": 1033,
+    "total_payment_amount": 4270.67,
+    "distinct_films_in_category": 67
+  },
+  {
+    "category_name": "Games",
+    "total_rentals": 969,
+    "total_payment_amount": 4281.33,
+    "distinct_films_in_category": 58
+  },
+  {
+    "category_name": "Children",
+    "total_rentals": 945,
+    "total_payment_amount": 3655.55,
+    "distinct_films_in_category": 58
+  },
+  {
+    "category_name": "Comedy",
+    "total_rentals": 941,
+    "total_payment_amount": 4383.58,
+    "distinct_films_in_category": 56
+  },
+  {
+    "category_name": "New",
+    "total_rentals": 940,
+    "total_payment_amount": 4351.62,
+    "distinct_films_in_category": 60
+  }
+],
+
+
+
+		"chart-rating-duration": [
+  {
+    "rating": "G",
+    "rental_duration": 3,
+    "rental_count": 829,
+    "total_payment_amount": 4336.67
+  },
+  {
+    "rating": "G",
+    "rental_duration": 4,
+    "rental_count": 338,
+    "total_payment_amount": 1467.6200000000001
+  },
+  {
+    "rating": "G",
+    "rental_duration": 5,
+    "rental_count": 578,
+    "total_payment_amount": 2744.21
+  },
+  {
+    "rating": "G",
+    "rental_duration": 6,
+    "rental_count": 596,
+    "total_payment_amount": 1926.0500000000002
+  },
+  {
+    "rating": "G",
+    "rental_duration": 7,
+    "rental_count": 432,
+    "total_payment_amount": 1189.68
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 3,
+    "rental_count": 596,
+    "total_payment_amount": 3190.03
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 4,
+    "rental_count": 476,
+    "total_payment_amount": 2248.25
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 5,
+    "rental_count": 719,
+    "total_payment_amount": 3208.8
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 6,
+    "rental_count": 896,
+    "total_payment_amount": 3230.03
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 7,
+    "rental_count": 606,
+    "total_payment_amount": 1997.96
+  },
+  {
+    "rating": "PG",
+    "rental_duration": 3,
+    "rental_count": 640,
+    "total_payment_amount": 3020.59
+  },
+  {
+    "rating": "PG",
+    "rental_duration": 4,
+    "rental_count": 733,
+    "total_payment_amount": 3542.67
+  },
+  {
+    "rating": "PG",
+    "rental_duration": 5,
+    "rental_count": 543,
+    "total_payment_amount": 2237.57
+  },
+  {
+    "rating": "PG",
+    "rental_duration": 6,
+    "rental_count": 659,
+    "total_payment_amount": 2247.42
+  },
+  {
+    "rating": "PG",
+    "rental_duration": 7,
+    "rental_count": 637,
+    "total_payment_amount": 2289.6600000000003
+  },
+  {
+    "rating": "PG-13",
+    "rental_duration": 3,
+    "rental_count": 639,
+    "total_payment_amount": 3472.6
+  },
+  {
+    "rating": "PG-13",
+    "rental_duration": 4,
+    "rental_count": 852,
+    "total_payment_amount": 3612.4700000000003
+  },
+  {
+    "rating": "PG-13",
+    "rental_duration": 5,
+    "rental_count": 656,
+    "total_payment_amount": 2994.42
+  },
+  {
+    "rating": "PG-13",
+    "rental_duration": 6,
+    "rental_count": 780,
+    "total_payment_amount": 2854.2200000000003
+  },
+  {
+    "rating": "PG-13",
+    "rental_duration": 7,
+    "rental_count": 658,
+    "total_payment_amount": 2325.4500000000003
+  },
+  {
+    "rating": "R",
+    "rental_duration": 3,
+    "rental_count": 708,
+    "total_payment_amount": 3290.92
+  },
+  {
+    "rating": "R",
+    "rental_duration": 4,
+    "rental_count": 852,
+    "total_payment_amount": 4142.47
+  },
+  {
+    "rating": "R",
+    "rental_duration": 5,
+    "rental_count": 669,
+    "total_payment_amount": 2523.32
+  },
+  {
+    "rating": "R",
+    "rental_duration": 6,
+    "rental_count": 461,
+    "total_payment_amount": 1723.39
+  },
+  {
+    "rating": "R",
+    "rental_duration": 7,
+    "rental_count": 491,
+    "total_payment_amount": 1590.0900000000001
+  }
+],
+
+
+
+		"chart-cost-actor": [
+  {
+    "a_film_id": 489,
+    "a_title": "JUGGLER HARDLY",
+    "a_replacement_cost": 14.99,
+    "a_total_rentals": 288,
+    "a_num_actors": 9,
+    "a_actor_total_rentals": 288,
+    "a_actor_rental_count": 32
+  },
+  {
+    "a_film_id": 892,
+    "a_title": "TITANIC BOONDOCK",
+    "a_replacement_cost": 18.99,
+    "a_total_rentals": 276,
+    "a_num_actors": 12,
+    "a_actor_total_rentals": 276,
+    "a_actor_rental_count": 23
+  },
+  {
+    "a_film_id": 880,
+    "a_title": "TELEMARK HEARTBREAKERS",
+    "a_replacement_cost": 9.99,
+    "a_total_rentals": 275,
+    "a_num_actors": 11,
+    "a_actor_total_rentals": 275,
+    "a_actor_rental_count": 25
+  },
+  {
+    "a_film_id": 249,
+    "a_title": "DRACULA CRYSTAL",
+    "a_replacement_cost": 26.99,
+    "a_total_rentals": 273,
+    "a_num_actors": 13,
+    "a_actor_total_rentals": 273,
+    "a_actor_rental_count": 21
+  },
+  {
+    "a_film_id": 649,
+    "a_title": "OZ LIAISONS",
+    "a_replacement_cost": 14.99,
+    "a_total_rentals": 264,
+    "a_num_actors": 11,
+    "a_actor_total_rentals": 264,
+    "a_actor_rental_count": 24
+  },
+  {
+    "a_film_id": 301,
+    "a_title": "FAMILY SWEET",
+    "a_replacement_cost": 24.99,
+    "a_total_rentals": 261,
+    "a_num_actors": 9,
+    "a_actor_total_rentals": 261,
+    "a_actor_rental_count": 29
+  },
+  {
+    "a_film_id": 764,
+    "a_title": "SATURDAY LAMBS",
+    "a_replacement_cost": 28.99,
+    "a_total_rentals": 252,
+    "a_num_actors": 9,
+    "a_actor_total_rentals": 252,
+    "a_actor_rental_count": 28
+  },
+  {
+    "a_film_id": 418,
+    "a_title": "HOBBIT ALIEN",
+    "a_replacement_cost": 27.99,
+    "a_total_rentals": 248,
+    "a_num_actors": 8,
+    "a_actor_total_rentals": 248,
+    "a_actor_rental_count": 31
+  },
+  {
+    "a_film_id": 369,
+    "a_title": "GOODFELLAS SALUTE",
+    "a_replacement_cost": 22.99,
+    "a_total_rentals": 248,
+    "a_num_actors": 8,
+    "a_actor_total_rentals": 248,
+    "a_actor_rental_count": 31
+  },
+  {
+    "a_film_id": 450,
+    "a_title": "IDOLS SNATCHERS",
+    "a_replacement_cost": 29.99,
+    "a_total_rentals": 240,
+    "a_num_actors": 8,
+    "a_actor_total_rentals": 240,
+    "a_actor_rental_count": 30
+  },
+  {
+    "a_film_id": 414,
+    "a_title": "HELLFIGHTERS SIERRA",
+    "a_replacement_cost": 23.99,
+    "a_total_rentals": 240,
+    "a_num_actors": 12,
+    "a_actor_total_rentals": 240,
+    "a_actor_rental_count": 20
+  },
+  {
+    "a_film_id": 869,
+    "a_title": "SUSPECTS QUILLS",
+    "a_replacement_cost": 22.99,
+    "a_total_rentals": 240,
+    "a_num_actors": 8,
+    "a_actor_total_rentals": 240,
+    "a_actor_rental_count": 30
+  }
+],
+
+
+
+		"table-store-inventory": [
+  {
+    "store_id": 1,
+    "total_inventory_items": 2270,
+    "distinct_films_in_inventory": 759,
+    "total_rentals": 7923,
+    "rental_utilization_rate": 3.490308370044053
+  },
+  {
+    "store_id": 2,
+    "total_inventory_items": 2311,
+    "distinct_films_in_inventory": 762,
+    "total_rentals": 8121,
+    "rental_utilization_rate": 3.5140631761142362
+  }
+],
+
+
+
+		"table-top-films": [
+  {
+    "title": "BUCKET BROTHERHOOD",
+    "category": "Travel",
+    "rating": "PG",
+    "rental_duration": 7,
+    "replacement_cost": 27.99,
+    "rental_count": 34,
+    "total_payment_amount": 180.66
+  },
+  {
+    "title": "ROCKETEER MOTHER",
+    "category": "Foreign",
+    "rating": "PG-13",
+    "rental_duration": 3,
+    "replacement_cost": 27.99,
+    "rental_count": 33,
+    "total_payment_amount": 116.67
+  },
+  {
+    "title": "SCALAWAG DUCK",
+    "category": "Music",
+    "rating": "NC-17",
+    "rental_duration": 6,
+    "replacement_cost": 13.99,
+    "rental_count": 32,
+    "total_payment_amount": 172.68
+  },
+  {
+    "title": "RIDGEMONT SUBMARINE",
+    "category": "New",
+    "rating": "PG-13",
+    "rental_duration": 3,
+    "replacement_cost": 28.99,
+    "rental_count": 32,
+    "total_payment_amount": 130.68
+  },
+  {
+    "title": "FORWARD TEMPLE",
+    "category": "Games",
+    "rating": "NC-17",
+    "rental_duration": 6,
+    "replacement_cost": 25.99,
+    "rental_count": 32,
+    "total_payment_amount": 128.68
+  },
+  {
+    "title": "GRIT CLOCKWORK",
+    "category": "Games",
+    "rating": "PG",
+    "rental_duration": 3,
+    "replacement_cost": 21.99,
+    "rental_count": 32,
+    "total_payment_amount": 110.68
+  },
+  {
+    "title": "JUGGLER HARDLY",
+    "category": "Animation",
+    "rating": "PG-13",
+    "rental_duration": 4,
+    "replacement_cost": 14.99,
+    "rental_count": 32,
+    "total_payment_amount": 96.68
+  },
+  {
+    "title": "WIFE TURN",
+    "category": "Documentary",
+    "rating": "NC-17",
+    "rental_duration": 3,
+    "replacement_cost": 27.99,
+    "rental_count": 31,
+    "total_payment_amount": 223.69
+  },
+  {
+    "title": "ZORRO ARK",
+    "category": "Comedy",
+    "rating": "NC-17",
+    "rental_duration": 3,
+    "replacement_cost": 18.99,
+    "rental_count": 31,
+    "total_payment_amount": 214.69
+  },
+  {
+    "title": "GOODFELLAS SALUTE",
+    "category": "Sci-Fi",
+    "rating": "PG",
+    "rental_duration": 4,
+    "replacement_cost": 22.99,
+    "rental_count": 31,
+    "total_payment_amount": 209.69
+  },
+  {
+    "title": "APACHE DIVINE",
+    "category": "Family",
+    "rating": "NC-17",
+    "rental_duration": 5,
+    "replacement_cost": 16.99,
+    "rental_count": 31,
+    "total_payment_amount": 178.69
+  },
+  {
+    "title": "NETWORK PEAK",
+    "category": "Family",
+    "rating": "PG-13",
+    "rental_duration": 5,
+    "replacement_cost": 23.99,
+    "rental_count": 31,
+    "total_payment_amount": 133.69
+  },
+  {
+    "title": "TIMBERLAND SKY",
+    "category": "Classics",
+    "rating": "G",
+    "rental_duration": 3,
+    "replacement_cost": 13.99,
+    "rental_count": 31,
+    "total_payment_amount": 123.69
+  },
+  {
+    "title": "ROBBERS JOON",
+    "category": "Children",
+    "rating": "PG-13",
+    "rental_duration": 7,
+    "replacement_cost": 26.99,
+    "rental_count": 31,
+    "total_payment_amount": 105.69000000000001
+  },
+  {
+    "title": "RUSH GOODFELLAS",
+    "category": "Family",
+    "rating": "PG",
+    "rental_duration": 3,
+    "replacement_cost": 20.99,
+    "rental_count": 31,
+    "total_payment_amount": 88.69
+  },
+  {
+    "title": "HOBBIT ALIEN",
+    "category": "Drama",
+    "rating": "PG-13",
+    "rental_duration": 5,
+    "replacement_cost": 27.99,
+    "rental_count": 31,
+    "total_payment_amount": 81.69
+  },
+  {
+    "title": "HARRY IDAHO",
+    "category": "Drama",
+    "rating": "PG-13",
+    "rental_duration": 5,
+    "replacement_cost": 18.99,
+    "rental_count": 30,
+    "total_payment_amount": 195.70000000000002
+  },
+  {
+    "title": "CAT CONEHEADS",
+    "category": "Comedy",
+    "rating": "G",
+    "rental_duration": 5,
+    "replacement_cost": 14.99,
+    "rental_count": 30,
+    "total_payment_amount": 181.70000000000002
+  },
+  {
+    "title": "MASSACRE USUAL",
+    "category": "Games",
+    "rating": "R",
+    "rental_duration": 6,
+    "replacement_cost": 16.99,
+    "rental_count": 30,
+    "total_payment_amount": 179.70000000000002
+  },
+  {
+    "title": "DOGMA FAMILY",
+    "category": "Animation",
+    "rating": "G",
+    "rental_duration": 5,
+    "replacement_cost": 16.99,
+    "rental_count": 30,
+    "total_payment_amount": 178.70000000000002
+  }
+],
+
+
+
+		"insight-cat-demand": [
+  {
+    "a_category": "Sports",
+    "b_total_rentals": 1179,
+    "c_total_payment_amount": 5314.21,
+    "d_avg_payment_per_rental": 4.507387616624258
+  },
+  {
+    "a_category": "Animation",
+    "b_total_rentals": 1166,
+    "c_total_payment_amount": 4656.3,
+    "d_avg_payment_per_rental": 3.9933962264150944
+  },
+  {
+    "a_category": "Action",
+    "b_total_rentals": 1112,
+    "c_total_payment_amount": 4375.85,
+    "d_avg_payment_per_rental": 3.9351169064748204
+  },
+  {
+    "a_category": "Sci-Fi",
+    "b_total_rentals": 1101,
+    "c_total_payment_amount": 4756.9800000000005,
+    "d_avg_payment_per_rental": 4.320599455040872
+  },
+  {
+    "a_category": "Family",
+    "b_total_rentals": 1096,
+    "c_total_payment_amount": 4226.070000000001,
+    "d_avg_payment_per_rental": 3.8559032846715335
+  },
+  {
+    "a_category": "Drama",
+    "b_total_rentals": 1060,
+    "c_total_payment_amount": 4587.39,
+    "d_avg_payment_per_rental": 4.3277264150943395
+  },
+  {
+    "a_category": "Documentary",
+    "b_total_rentals": 1050,
+    "c_total_payment_amount": 4217.52,
+    "d_avg_payment_per_rental": 4.016685714285715
+  },
+  {
+    "a_category": "Foreign",
+    "b_total_rentals": 1033,
+    "c_total_payment_amount": 4270.67,
+    "d_avg_payment_per_rental": 4.134240077444337
+  },
+  {
+    "a_category": "Games",
+    "b_total_rentals": 969,
+    "c_total_payment_amount": 4281.33,
+    "d_avg_payment_per_rental": 4.418297213622291
+  },
+  {
+    "a_category": "Children",
+    "b_total_rentals": 945,
+    "c_total_payment_amount": 3655.55,
+    "d_avg_payment_per_rental": 3.8683068783068784
+  },
+  {
+    "a_category": "Comedy",
+    "b_total_rentals": 941,
+    "c_total_payment_amount": 4383.58,
+    "d_avg_payment_per_rental": 4.658427205100956
+  },
+  {
+    "a_category": "New",
+    "b_total_rentals": 940,
+    "c_total_payment_amount": 4351.62,
+    "d_avg_payment_per_rental": 4.629382978723404
+  },
+  {
+    "a_category": "Classics",
+    "b_total_rentals": 939,
+    "c_total_payment_amount": 3639.59,
+    "d_avg_payment_per_rental": 3.876027689030884
+  },
+  {
+    "a_category": "Horror",
+    "b_total_rentals": 846,
+    "c_total_payment_amount": 3722.54,
+    "d_avg_payment_per_rental": 4.40016548463357
+  },
+  {
+    "a_category": "Travel",
+    "b_total_rentals": 837,
+    "c_total_payment_amount": 3549.6400000000003,
+    "d_avg_payment_per_rental": 4.240908004778973
+  },
+  {
+    "a_category": "Music",
+    "b_total_rentals": 830,
+    "c_total_payment_amount": 3417.7200000000003,
+    "d_avg_payment_per_rental": 4.117734939759036
+  }
+],
+
+
+
+		"insight-film-patterns": [
+  {
+    "rating": "PG-13",
+    "rental_duration": 6,
+    "replacement_cost_band": "gte_25",
+    "actor_presence": "has_actor",
+    "rental_count": 359,
+    "avg_payment_amount": 3.744930362116992
+  },
+  {
+    "rating": "PG",
+    "rental_duration": 4,
+    "replacement_cost_band": "20_to_lt_25",
+    "actor_presence": "has_actor",
+    "rental_count": 305,
+    "avg_payment_amount": 4.976852459016394
+  },
+  {
+    "rating": "R",
+    "rental_duration": 4,
+    "replacement_cost_band": "20_to_lt_25",
+    "actor_presence": "has_actor",
+    "rental_count": 295,
+    "avg_payment_amount": 4.861186440677966
+  },
+  {
+    "rating": "G",
+    "rental_duration": 3,
+    "replacement_cost_band": "gte_25",
+    "actor_presence": "has_actor",
+    "rental_count": 281,
+    "avg_payment_amount": 5.381316725978648
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 6,
+    "replacement_cost_band": "20_to_lt_25",
+    "actor_presence": "has_actor",
+    "rental_count": 272,
+    "avg_payment_amount": 3.648088235294118
+  },
+  {
+    "rating": "PG",
+    "rental_duration": 6,
+    "replacement_cost_band": "lt_15",
+    "actor_presence": "has_actor",
+    "rental_count": 262,
+    "avg_payment_amount": 2.875534351145038
+  },
+  {
+    "rating": "PG-13",
+    "rental_duration": 4,
+    "replacement_cost_band": "lt_15",
+    "actor_presence": "has_actor",
+    "rental_count": 261,
+    "avg_payment_amount": 3.8213793103448275
+  },
+  {
+    "rating": "PG-13",
+    "rental_duration": 4,
+    "replacement_cost_band": "20_to_lt_25",
+    "actor_presence": "has_actor",
+    "rental_count": 243,
+    "avg_payment_amount": 3.804814814814815
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 6,
+    "replacement_cost_band": "lt_15",
+    "actor_presence": "has_actor",
+    "rental_count": 242,
+    "avg_payment_amount": 4.11396694214876
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 5,
+    "replacement_cost_band": "20_to_lt_25",
+    "actor_presence": "has_actor",
+    "rental_count": 232,
+    "avg_payment_amount": 4.554655172413794
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 7,
+    "replacement_cost_band": "lt_15",
+    "actor_presence": "has_actor",
+    "rental_count": 231,
+    "avg_payment_amount": 3.4576190476190476
+  },
+  {
+    "rating": "PG",
+    "rental_duration": 5,
+    "replacement_cost_band": "lt_15",
+    "actor_presence": "has_actor",
+    "rental_count": 231,
+    "avg_payment_amount": 4.241038961038961
+  },
+  {
+    "rating": "PG",
+    "rental_duration": 3,
+    "replacement_cost_band": "20_to_lt_25",
+    "actor_presence": "has_actor",
+    "rental_count": 230,
+    "avg_payment_amount": 5.020434782608696
+  },
+  {
+    "rating": "G",
+    "rental_duration": 5,
+    "replacement_cost_band": "lt_15",
+    "actor_presence": "has_actor",
+    "rental_count": 222,
+    "avg_payment_amount": 5.021486486486486
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 6,
+    "replacement_cost_band": "gte_25",
+    "actor_presence": "has_actor",
+    "rental_count": 219,
+    "avg_payment_amount": 2.967123287671233
+  },
+  {
+    "rating": "G",
+    "rental_duration": 3,
+    "replacement_cost_band": "15_to_lt_20",
+    "actor_presence": "has_actor",
+    "rental_count": 217,
+    "avg_payment_amount": 4.718110599078341
+  },
+  {
+    "rating": "PG",
+    "rental_duration": 7,
+    "replacement_cost_band": "lt_15",
+    "actor_presence": "has_actor",
+    "rental_count": 216,
+    "avg_payment_amount": 3.3603703703703705
+  },
+  {
+    "rating": "R",
+    "rental_duration": 3,
+    "replacement_cost_band": "20_to_lt_25",
+    "actor_presence": "has_actor",
+    "rental_count": 211,
+    "avg_payment_amount": 4.852559241706161
+  },
+  {
+    "rating": "PG-13",
+    "rental_duration": 7,
+    "replacement_cost_band": "lt_15",
+    "actor_presence": "has_actor",
+    "rental_count": 210,
+    "avg_payment_amount": 3.585285714285715
+  },
+  {
+    "rating": "NC-17",
+    "rental_duration": 3,
+    "replacement_cost_band": "20_to_lt_25",
+    "actor_presence": "has_actor",
+    "rental_count": 209,
+    "avg_payment_amount": 5.67421052631579
+  }
+],
+
+
+
+
+	};
+
+document.addEventListener('DOMContentLoaded', () => {
+	for (const template of document.querySelectorAll('template[data-dashboard-element-template]')) {
+		const target = document.getElementById(template.dataset.dashboardElementTemplate);
+		if (target) {
+			target.replaceChildren(template.content.cloneNode(true));
+		}
+	}
+
+	const getData = (key) => window.dashboardData?.[key] ?? [];
+	const firstRow = (key) => {
+		const rows = getData(key);
+		return Array.isArray(rows) ? rows[0] : rows;
+	};
+	const formatNumber = (value, maximumFractionDigits = 0) => {
+		const number = Number(value);
+		return Number.isFinite(number) ? new Intl.NumberFormat(undefined, { maximumFractionDigits }).format(number) : '-';
+	};
+	const formatCurrency = (value, currency = 'USD') => {
+		const number = Number(value);
+		return Number.isFinite(number) ? new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(number) : '-';
+	};
+	const formatPercent = (value, maximumFractionDigits = 1) => {
+		const number = Number(value);
+		return Number.isFinite(number) ? formatNumber(number, maximumFractionDigits) + '%' : '-';
+	};
+	const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({
+		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+	}[char]));
+	const elementScripts = [
+
+
+
+
+		{
+			id: "metric-top-category",
+			script: "const rows = getData('metric-top-category');\nconst row = firstRow('metric-top-category');\nif (row) {\n  const label = row['category_name'];\n  const value = row['film_count'];\n  const labelEl = document.getElementById('metric-top-category-label');\n  const valueEl = document.getElementById('metric-top-category-value');\n  if (labelEl) labelEl.textContent = label;\n  if (valueEl) valueEl.textContent = formatNumber(value);\n}",
+		},
+
+
+
+		{
+			id: "metric-top-rating",
+			script: "const data = getData('metric-top-rating');\nconst row = firstRow('metric-top-rating');\nif (!row) {\n  return;\n}\nconst labelEl = document.getElementById('metric-top-rating-label');\nconst valueEl = document.getElementById('metric-top-rating-value');\nlabelEl.textContent = row.rating == null ? '' : escapeHtml(String(row.rating));\nvalueEl.textContent = row.film_count == null ? '' : formatNumber(Number(row.film_count), 0);",
+		},
+
+
+
+		{
+			id: "metric-avg-rental-duration",
+			script: "const row = firstRow('metric-avg-rental-duration');\nconst valueEl = document.getElementById('metric-avg-rental-duration-value');\nconst labelEl = document.getElementById('metric-avg-rental-duration-label');\nif (row && valueEl) {\n  const value = row.average_rental_duration;\n  valueEl.textContent = (value === null || value === undefined) ? '—' : formatNumber(value, 2);\n  if (labelEl) {\n    labelEl.textContent = 'days';\n  }\n}",
+		},
+
+
+
+		{
+			id: "metric-avg-replacement-cost",
+			script: "const elValue = document.getElementById('metric-avg-replacement-cost-value');\nconst elLabel = document.getElementById('metric-avg-replacement-cost-label');\nconst row = firstRow('metric-avg-replacement-cost');\nif (row && typeof row.avg_replacement_cost !== 'undefined' && row.avg_replacement_cost !== null) {\n  elValue.textContent = formatCurrency(row.avg_replacement_cost);\n} else {\n  elValue.textContent = '—';\n}\nif (elLabel) {\n  elLabel.textContent = '';\n}",
+		},
+
+
+
+		{
+			id: "metric-inventory-count",
+			script: "const data = getData(\"metric-inventory-count\");\nconst row = firstRow(\"metric-inventory-count\");\nconst valueEl = document.getElementById(\"metric-inventory-count-value\");\nconst labelEl = document.getElementById(\"metric-inventory-count-label\");\nif (row && valueEl) {\n  const v = row[\"total_inventory_count\"];\n  if (v === null || v === undefined) {\n    valueEl.textContent = \"—\";\n  } else {\n    valueEl.textContent = formatNumber(v, 0);\n  }\n}\nif (labelEl) {\n  labelEl.textContent = \"Total\";\n}",
+		},
+
+
+
+		{
+			id: "chart-category-demand",
+			script: "var rows = getData('chart-category-demand');\nvar safeRows = Array.isArray(rows) ? rows : [];\nif (safeRows.length >= 2) {\n  var top = safeRows.slice(0, 12);\n  var labels = top.map(function(r) { return escapeHtml(r.category_name); });\n  var totalRentals = top.map(function(r) { return Number(r.total_rentals) || 0; });\n  var totalPayments = top.map(function(r) { return Number(r.total_payment_amount) || 0; });\n\n  var ctx = document.getElementById('chart-category-demand-canvas');\n  if (ctx && ctx.getContext) {\n    if (ctx.__chartInstance) {\n      ctx.__chartInstance.destroy();\n    }\n\n    ctx.__chartInstance = new Chart(ctx.getContext('2d'), {\n      type: 'bar',\n      data: {\n        labels: labels,\n        datasets: [\n          {\n            label: 'Total rentals',\n            data: totalRentals,\n            backgroundColor: 'rgba(13,110,253,0.65)'\n          },\n          {\n            label: 'Total payment amount',\n            data: totalPayments,\n            backgroundColor: 'rgba(25,135,84,0.55)',\n            xAxisID: 'x2'\n          }\n        ]\n      },\n      options: {\n        responsive: true,\n        maintainAspectRatio: false,\n        indexAxis: 'y',\n        plugins: {\n          legend: {\n            display: true\n          },\n          tooltip: {\n            callbacks: {\n              label: function(context) {\n                var v = context.parsed.x;\n                var dsLabel = context.dataset.label || '';\n                if (dsLabel === 'Total payment amount') {\n                  return dsLabel + ': ' + formatCurrency(v);\n                }\n                return dsLabel + ': ' + formatNumber(v, 0);\n              }\n            }\n          }\n        },\n        scales: {\n          y: {\n            ticks: {\n              autoSkip: false\n            }\n          },\n          x: {\n            beginAtZero: true,\n            title: {\n              display: true,\n              text: 'Rentals'\n            }\n          },\n          x2: {\n            beginAtZero: true,\n            grid: {\n              drawOnChartArea: false\n            },\n            position: 'top',\n            title: {\n              display: true,\n              text: 'Payments'\n            }\n          }\n        }\n      }\n    });\n  }\n}",
+		},
+
+
+
+		{
+			id: "chart-rating-duration",
+			script: "const containerId = 'chart-rating-duration';\nconst tableKey = containerId;\nconst canvas = document.getElementById(containerId + '-canvas');\n\nconst data = getData(tableKey);\nif (!data || data.length < 2) {\n  return;\n}\n\nconst rows = data.slice(0, 12);\nconst labels = [];\nconst demandCounts = [];\nconst paymentAmounts = [];\n\nfor (let i = 0; i < rows.length; i++) {\n  const r = rows[i];\n  const rating = r.rating;\n  const duration = r.rental_duration;\n  labels.push(String(rating) + ' · ' + String(duration));\n  demandCounts.push(r.rental_count);\n  paymentAmounts.push(r.total_payment_amount);\n}\n\nconst chart = new Chart(canvas, {\n  type: 'bar',\n  data: {\n    labels: labels,\n    datasets: [\n      {\n        label: 'Rental count',\n        data: demandCounts,\n        backgroundColor: 'rgba(13, 110, 253, 0.7)',\n        borderColor: 'rgba(13, 110, 253, 1)',\n        borderWidth: 1\n      }\n    ]\n  },\n  options: {\n    responsive: true,\n    maintainAspectRatio: false,\n    plugins: {\n      legend: {\n        display: labels.length > 0 && true\n      },\n      tooltip: {\n        callbacks: {\n          label: function (context) {\n            const v = context.parsed.y;\n            return ' ' + formatNumber(v, 0);\n          }\n        }\n      }\n    },\n    scales: {\n      x: {\n        ticks: {\n          maxRotation: 0,\n          minRotation: 0\n        },\n        grid: {\n          display: false\n        }\n      },\n      y: {\n        beginAtZero: true,\n        ticks: {\n          callback: function (value) {\n            return formatNumber(value, 0);\n          }\n        }\n      }\n    }\n  }\n});",
+		},
+
+
+
+		{
+			id: "chart-cost-actor",
+			script: "const rootId = \"chart-cost-actor\";\nconst rows = getData(rootId);\nconst canvas = document.getElementById(rootId + \"-canvas\");\nif (!canvas) {\n  throw new Error(\"Canvas not found for \" + rootId);\n}\n\nlet chartDataRows = Array.isArray(rows) ? rows : [];\nchartDataRows = chartDataRows.slice(0, 12);\n\nconst labels = [];\nconst replacementCosts = [];\nconst totalRentals = [];\nconst actorRentalCounts = [];\nconst actorCounts = [];\n\nfor (const r of chartDataRows) {\n  labels.push(escapeHtml(String(r.a_title ?? \"\")));\n  replacementCosts.push(Number(r.a_replacement_cost ?? 0));\n  totalRentals.push(Number(r.a_total_rentals ?? 0));\n  actorRentalCounts.push(Number(r.a_actor_rental_count ?? 0));\n  actorCounts.push(Number(r.a_num_actors ?? 0));\n}\n\nconst data = {\n  labels: labels,\n  datasets: [\n    {\n      type: \"scatter\",\n      label: \"Total Rentals (demand)\",\n      data: labels.map((_, i) => {\n        return { x: totalRentals[i], y: replacementCosts[i] };\n      }),\n      backgroundColor: \"rgba(13, 110, 253, 0.65)\",\n      borderColor: \"rgba(13, 110, 253, 1)\",\n      pointRadius: 4,\n      pointHoverRadius: 6\n    },\n    {\n      type: \"bar\",\n      label: \"Actor Rental Count\",\n      data: labels.map((_, i) => {\n        return { x: labels[i], y: actorRentalCounts[i] };\n      }),\n      backgroundColor: \"rgba(25, 135, 84, 0.5)\",\n      borderColor: \"rgba(25, 135, 84, 1)\",\n      borderWidth: 1,\n      xAxisID: \"x2\",\n      yAxisID: \"y2\",\n      barPercentage: 0.7,\n      categoryPercentage: 0.8\n    }\n  ]\n};\n\nnew Chart(canvas, {\n  data,\n  options: {\n    responsive: true,\n    maintainAspectRatio: false,\n    interaction: {\n      mode: \"nearest\",\n      intersect: false\n    },\n    plugins: {\n      legend: {\n        display: true\n      },\n      tooltip: {\n        callbacks: {\n          label: function(context) {\n            const datasetLabel = context.dataset.label || \"\";\n            if (context.dataset.type === \"scatter\") {\n              const raw = context.raw || {};\n              const xVal = raw.x;\n              const yVal = raw.y;\n              return datasetLabel + \": Rentals=\" + formatNumber(xVal, 0) + \", Replacement Cost=\" + formatCurrency(yVal);\n            }\n            return datasetLabel + \": \" + formatNumber(context.raw?.y ?? 0, 0);\n          }\n        }\n      }\n    },\n    scales: {\n      x: {\n        type: \"linear\",\n        position: \"bottom\",\n        title: {\n          display: true,\n          text: \"Total Rentals (demand)\"\n        },\n        grid: {\n          drawOnChartArea: true\n        }\n      },\n      y: {\n        title: {\n          display: true,\n          text: \"Replacement Cost\"\n        },\n        ticks: {\n          callback: function(value) {\n            return formatCurrency(value);\n          }\n        }\n      },\n      x2: {\n        type: \"category\",\n        position: \"top\",\n        grid: {\n          display: false,\n          drawOnChartArea: false\n        },\n        ticks: {\n          maxRotation: 0,\n          autoSkip: true\n        }\n      },\n      y2: {\n        position: \"right\",\n        grid: {\n          drawOnChartArea: false\n        },\n        title: {\n          display: true,\n          text: \"Actor Rental Count\"\n        }\n      }\n    }\n  }\n});",
+		},
+
+
+
+		{
+			id: "table-store-inventory",
+			script: "const rows = getData(\"table-store-inventory\");\nconst tbody = document.getElementById(\"table-store-inventory-table-body\");\nif (tbody) {\n  tbody.innerHTML = \"\";\n}\nif (rows && rows.length) {\n  const slice = rows.slice(0, 12);\n  for (let i = 0; i < slice.length; i++) {\n    const r = slice[i];\n    const storeId = r[\"store_id\"];\n    const totalInventoryItems = r[\"total_inventory_items\"];\n    const distinctFilms = r[\"distinct_films_in_inventory\"];\n    const totalRentals = r[\"total_rentals\"];\n    const utilizationRate = r[\"rental_utilization_rate\"];\n\n    const tr = document.createElement(\"tr\");\n\n    const tdStore = document.createElement(\"td\");\n    tdStore.textContent = storeId;\n    tr.appendChild(tdStore);\n\n    const tdInv = document.createElement(\"td\");\n    tdInv.className = \"text-end\";\n    tdInv.textContent = formatNumber(totalInventoryItems, 0);\n    tr.appendChild(tdInv);\n\n    const tdFilms = document.createElement(\"td\");\n    tdFilms.className = \"text-end\";\n    tdFilms.textContent = formatNumber(distinctFilms, 0);\n    tr.appendChild(tdFilms);\n\n    const tdRentals = document.createElement(\"td\");\n    tdRentals.className = \"text-end\";\n    tdRentals.textContent = formatNumber(totalRentals, 0);\n    tr.appendChild(tdRentals);\n\n    const tdUtil = document.createElement(\"td\");\n    tdUtil.className = \"text-end\";\n    tdUtil.textContent = formatNumber(utilizationRate, 3);\n    tr.appendChild(tdUtil);\n\n    tbody.appendChild(tr);\n  }\n}",
+		},
+
+
+
+		{
+			id: "table-top-films",
+			script: "const data = getData('table-top-films');\nconst tbody = document.getElementById('table-top-films-table-body');\nif (tbody) {\n  tbody.innerHTML = '';\n}\n\nconst maxRows = 12;\nconst rows = Array.isArray(data) ? data.slice(0, maxRows) : [];\n\nif (tbody && rows.length) {\n  const frag = document.createDocumentFragment();\n  for (const row of rows) {\n    const tr = document.createElement('tr');\n\n    const tdTitle = document.createElement('td');\n    tdTitle.innerHTML = escapeHtml(row.title);\n\n    const tdCategory = document.createElement('td');\n    tdCategory.innerHTML = escapeHtml(row.category);\n\n    const tdRating = document.createElement('td');\n    tdRating.innerHTML = escapeHtml(row.rating);\n\n    const tdRentals = document.createElement('td');\n    tdRentals.className = 'text-end';\n    tdRentals.innerHTML = formatNumber(row.rental_count, 0);\n\n    const tdDuration = document.createElement('td');\n    tdDuration.className = 'text-end';\n    tdDuration.innerHTML = formatNumber(row.rental_duration, 0);\n\n    const tdReplacement = document.createElement('td');\n    tdReplacement.className = 'text-end';\n    tdReplacement.innerHTML = formatCurrency(row.replacement_cost);\n\n    const tdTotalPaid = document.createElement('td');\n    tdTotalPaid.className = 'text-end';\n    tdTotalPaid.innerHTML = formatCurrency(row.total_payment_amount);\n\n    tr.appendChild(tdTitle);\n    tr.appendChild(tdCategory);\n    tr.appendChild(tdRating);\n    tr.appendChild(tdRentals);\n    tr.appendChild(tdDuration);\n    tr.appendChild(tdReplacement);\n    tr.appendChild(tdTotalPaid);\n\n    frag.appendChild(tr);\n  }\n  tbody.appendChild(frag);\n}",
+		},
+
+
+
+
+
+
+
+
+	];
+	for (const elementScript of elementScripts) {
+		try {
+			new Function(
+				'getData',
+				'firstRow',
+				'formatNumber',
+				'formatCurrency',
+				'formatPercent',
+				'escapeHtml',
+				elementScript.script
+			)(getData, firstRow, formatNumber, formatCurrency, formatPercent, escapeHtml);
+		} catch (error) {
+			console.error('Dashboard element failed:', elementScript.id, error);
+		}
+	}
+});
+	</script>
+</body>
+
+</html>

@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<title>Taxonomic Coverage Overview</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css" rel="stylesheet" />
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+	<style>
+		.dashboard-container {
+			max-width: 1480px;
+		}
+		.dashboard-element, .dashboard-element > .card, .dashboard-element .card-body {
+			min-width: 0;
+		}
+		.dashboard-element {
+			display: flex;
+			align-items: stretch;
+			flex-direction: column;
+		}
+		.dashboard-element > * {
+			flex: 1 1 auto;
+			min-width: 0;
+			width: 100%;
+			height: 100%;
+		}
+		.dashboard-element .card > :not(.card-body) {
+			margin: 0 var(--bs-card-spacer-x) var(--bs-card-spacer-y);
+		}
+		.dashboard-element-table .card-body {
+			display: flex;
+			flex-direction: column;
+		}
+		.dashboard-element-table .table-responsive {
+			max-height: 360px;
+			overflow: auto;
+		}
+		.dashboard-element-metric .metric-value-number {
+			display: block;
+			margin-top: 0.75rem;
+			font-size: 2.5rem !important;
+			font-weight: 700 !important;
+			line-height: 1.1;
+		}
+		.dashboard-element-header + .dashboard-element-metric .metric-value-number {
+			font-size: 3rem !important;
+		}
+		.dashboard-element-metric [id$="-label"] {
+			margin-top: 0.25rem;
+			color: var(--bs-secondary-color);
+			font-size: 0.875rem;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container dashboard-container my-4">
+		<div class="row g-3">
+
+			<div id="header-dashboard-header" class="col-12 dashboard-element dashboard-element-header">
+
+				<template data-dashboard-element-template="header-dashboard-header">
+<header class="mb-4"><h1 class="h3 fw-bold mb-2">Taxonomic Coverage Overview</h1><p class="text-muted mb-0">Use this dashboard to explore how ITIS records are distributed across kingdoms, ranks, major groups, and hierarchy depth.</p></header>
+				</template>
+
+			</div>
+
+			<div id="metric-kingdom-count" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-kingdom-count">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Kingdoms Represented</h6><div class="text-muted small mb-2">Number of distinct kingdoms in the taxonomy dataset.</div><div class="metric-value-number" id="metric-kingdom-count-value"></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-taxon-count" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-taxon-count">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Taxonomic Units</h6><div class="text-muted small mb-2">Total number of taxonomic units available for coverage analysis.</div><div id="metric-taxon-count-value" class="metric-value-number">—</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-rank-count" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-rank-count">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Ranks Represented</h6><div class="text-muted small">Number of distinct taxonomic ranks present in the taxonomy records.</div><div id="metric-rank-count-value" class="metric-value-number">—</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-deepest-level" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-deepest-level">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Deepest Hierarchy Level</h6><div class="text-muted small mb-2">Highest hierarchy level recorded in the taxonomy structure.</div><div id="metric-deepest-level-value" class="metric-value-number">—</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-kingdom-overview" class="col-12 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-kingdom-overview">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Coverage by Kingdom</h6><div class="text-muted small mb-3">Ranked comparison of how many taxonomic units are represented in each kingdom, to show which major branches dominate the dataset.</div><div style="position: relative; height: 380px; width: 100%;"><canvas id="chart-kingdom-overview-canvas" aria-label="Coverage by Kingdom"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-rank-spectrum" class="col-12 col-md-6 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-rank-spectrum">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Coverage by Rank</h6><div class="text-muted small mb-3">Distribution of taxonomic units across taxonomic ranks, showing the breadth of representation from higher to lower ranks.</div><div style="position: relative; height: 360px; width: 100%;"><canvas id="chart-rank-spectrum-canvas"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-depth-profile" class="col-12 col-md-6 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-depth-profile">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Hierarchy Depth Profile</h6><div class="text-muted small mb-3">Counts of taxonomic units by hierarchy level to reveal how deep the taxonomy tree goes and where most records sit.</div><div style="position: relative; height: 420px; width: 100%;"><canvas id="chart-depth-profile-canvas" style="width: 100%; height: 100%;"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="table-group-breakdown" class="col-12 col-md-6 dashboard-element dashboard-element-table">
+
+				<template data-dashboard-element-template="table-group-breakdown">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Major Group Breakdown</h6><div class="text-muted small mb-3">A compact comparison of kingdoms, ranks, and record counts to help inspect which organism groups are present and how they are distributed.</div><div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th scope="col">Kingdom</th><th scope="col">Rank</th><th scope="col" class="text-end">Taxon Count</th></tr></thead><tbody id="table-group-breakdown-table-body"></tbody></table></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="table-deep-taxa" class="col-12 col-md-6 dashboard-element dashboard-element-table">
+
+				<template data-dashboard-element-template="table-deep-taxa">
+<div class="card h-100"><div class="card-body"><div class="d-flex align-items-start justify-content-between gap-3"><div><h6 class="card-title fw-semibold mb-1">Deepest Represented Taxa</h6><div class="text-muted small">A ranked list of taxa with the greatest hierarchy depth, useful for spotting the most deeply nested organism lineages represented in the database.</div></div></div><div class="table-responsive mt-3"><table class="table table-sm align-middle" aria-label="Deepest represented taxa"><thead><tr><th scope="col">TSN</th><th scope="col">Taxon</th><th scope="col">Kingdom</th><th scope="col">Rank</th><th scope="col">Depth level</th></tr></thead><tbody id="table-deep-taxa-table-body"></tbody></table></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="insight-kingdom-cov" class="col-12 col-md-6 dashboard-element dashboard-element-insight">
+
+				<template data-dashboard-element-template="insight-kingdom-cov">
+<div class="card h-100"><div class="card-body"><ul>
+  <li><strong>Animalia</strong> dominates coverage with <strong>784,692</strong> taxonomic units, far ahead of all other kingdoms.</li>
+  <li><strong>Plantae</strong> is the next largest group at <strong>168,097</strong>, but it is still well below Animalia.</li>
+  <li>Coverage drops sharply after the top two: <strong>Bacteria</strong> has <strong>21,602</strong> units, followed by <strong>Chromista</strong> (<strong>9,370</strong>) and <strong>Fungi</strong> (<strong>5,141</strong>).</li>
+  <li><strong>Protozoa</strong> (<strong>3,646</strong>) and <strong>Archaea</strong> (<strong>619</strong>) are represented much less extensively in this excerpt.</li>
+  <li>For every kingdom shown, <strong>total records equal distinct TSNs</strong>, suggesting no duplicate TSN inflation in these counts.</li>
+</ul></div></div>
+				</template>
+
+			</div>
+
+			<div id="insight-rank-depth" class="col-12 col-md-6 dashboard-element dashboard-element-insight">
+
+				<template data-dashboard-element-template="insight-rank-depth">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Rank and hierarchy depth</h6><div class="text-muted small mb-3">Highlights how representation is distributed across taxonomic ranks and hierarchy levels to reveal the structure of the dataset.</div><ul>
+  <li><strong>Species</strong> dominate the visible results at nearly every listed hierarchy level, with the largest counts at levels <strong>18</strong> (73,834), <strong>11</strong> (70,552), <strong>10</strong> (61,567), and <strong>16</strong> (59,883).</li>
+  <li><strong>Genus</strong> is the next most represented rank in the excerpt, but at much lower volumes than species; its highest visible count is <strong>9,888</strong> at level <strong>10</strong>.</li>
+  <li><strong>Subspecies</strong> appears meaningfully but less often than species and genus, led by level <strong>12</strong> with <strong>21,759</strong> records and level <strong>19</strong> with <strong>7,812</strong>.</li>
+  <li>A few other ranks are present in smaller amounts, such as <strong>Variety</strong> at level <strong>12</strong> with <strong>5,910</strong> records, suggesting the dataset includes more granular taxonomic categories beyond the main ranks.</li>
+  <li>The visible rows suggest representation is concentrated in deeper hierarchy levels, especially around levels <strong>10–19</strong>, but the excerpt is partial so the full distribution across all ranks and levels may differ.</li>
+</ul></div></div>
+				</template>
+
+			</div>
+
+			<div id="text-scope-note" class="col-12 dashboard-element dashboard-element-text">
+
+				<template data-dashboard-element-template="text-scope-note">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">How to read this section</h6><div class="text-muted small">Use this section to compare representation across kingdoms, ranks, and hierarchy depth. Counts reflect records in the ITIS taxonomy tables and may include both accepted and non-accepted taxa.</div></div></div>
+				</template>
+
+			</div>
+
+		</div>
+	</div>
+
+	<script>
+	window.dashboardData = {
+
+
+
+
+		"metric-kingdom-count": [
+  {
+    "kingdom_count": 7
+  }
+],
+
+
+
+		"metric-taxon-count": [
+  {
+    "total_taxonomic_units": 993167
+  }
+],
+
+
+
+		"metric-rank-count": [
+  {
+    "distinct_taxonomic_ranks": 31
+  }
+],
+
+
+
+		"metric-deepest-level": [
+  {
+    "max_hierarchy_level": 21
+  }
+],
+
+
+
+		"chart-kingdom-overview": [
+  {
+    "kingdom_name": "Animalia",
+    "taxon_count": 784692
+  },
+  {
+    "kingdom_name": "Plantae",
+    "taxon_count": 168097
+  },
+  {
+    "kingdom_name": "Bacteria",
+    "taxon_count": 21602
+  },
+  {
+    "kingdom_name": "Chromista",
+    "taxon_count": 9370
+  },
+  {
+    "kingdom_name": "Fungi",
+    "taxon_count": 5141
+  },
+  {
+    "kingdom_name": "Protozoa",
+    "taxon_count": 3646
+  },
+  {
+    "kingdom_name": "Archaea",
+    "taxon_count": 619
+  }
+],
+
+
+
+		"chart-rank-spectrum": [
+  {
+    "rank_name": "Subform",
+    "taxon_unit_count": 3
+  },
+  {
+    "rank_name": "Subvariety",
+    "taxon_unit_count": 741
+  },
+  {
+    "rank_name": "Subspecies",
+    "taxon_unit_count": 642551
+  },
+  {
+    "rank_name": "Variety",
+    "taxon_unit_count": 207330
+  },
+  {
+    "rank_name": "Form",
+    "taxon_unit_count": 37
+  },
+  {
+    "rank_name": "Race",
+    "taxon_unit_count": 247
+  },
+  {
+    "rank_name": "Morph",
+    "taxon_unit_count": 1545
+  },
+  {
+    "rank_name": "Form",
+    "taxon_unit_count": 6180
+  },
+  {
+    "rank_name": "Species",
+    "taxon_unit_count": 5288556
+  },
+  {
+    "rank_name": "Subgenus",
+    "taxon_unit_count": 28168
+  },
+  {
+    "rank_name": "Genus",
+    "taxon_unit_count": 582974
+  },
+  {
+    "rank_name": "Subtribe",
+    "taxon_unit_count": 1799
+  }
+],
+
+
+
+		"chart-depth-profile": [
+  {
+    "level": 0,
+    "taxonomic_units": 7,
+    "deepest_level_reached": 0
+  },
+  {
+    "level": 1,
+    "taxonomic_units": 24,
+    "deepest_level_reached": 1
+  },
+  {
+    "level": 2,
+    "taxonomic_units": 85,
+    "deepest_level_reached": 2
+  },
+  {
+    "level": 3,
+    "taxonomic_units": 212,
+    "deepest_level_reached": 3
+  },
+  {
+    "level": 4,
+    "taxonomic_units": 599,
+    "deepest_level_reached": 4
+  },
+  {
+    "level": 5,
+    "taxonomic_units": 1729,
+    "deepest_level_reached": 5
+  },
+  {
+    "level": 6,
+    "taxonomic_units": 5881,
+    "deepest_level_reached": 6
+  },
+  {
+    "level": 7,
+    "taxonomic_units": 18097,
+    "deepest_level_reached": 7
+  },
+  {
+    "level": 8,
+    "taxonomic_units": 12276,
+    "deepest_level_reached": 8
+  },
+  {
+    "level": 9,
+    "taxonomic_units": 22624,
+    "deepest_level_reached": 9
+  },
+  {
+    "level": 10,
+    "taxonomic_units": 74512,
+    "deepest_level_reached": 10
+  },
+  {
+    "level": 11,
+    "taxonomic_units": 78812,
+    "deepest_level_reached": 11
+  },
+  {
+    "level": 12,
+    "taxonomic_units": 66456,
+    "deepest_level_reached": 12
+  },
+  {
+    "level": 13,
+    "taxonomic_units": 59487,
+    "deepest_level_reached": 13
+  },
+  {
+    "level": 14,
+    "taxonomic_units": 45290,
+    "deepest_level_reached": 14
+  },
+  {
+    "level": 15,
+    "taxonomic_units": 49618,
+    "deepest_level_reached": 15
+  },
+  {
+    "level": 16,
+    "taxonomic_units": 69822,
+    "deepest_level_reached": 16
+  },
+  {
+    "level": 17,
+    "taxonomic_units": 62621,
+    "deepest_level_reached": 17
+  },
+  {
+    "level": 18,
+    "taxonomic_units": 78637,
+    "deepest_level_reached": 18
+  },
+  {
+    "level": 19,
+    "taxonomic_units": 28211,
+    "deepest_level_reached": 19
+  },
+  {
+    "level": 20,
+    "taxonomic_units": 3182,
+    "deepest_level_reached": 20
+  },
+  {
+    "level": 21,
+    "taxonomic_units": 92,
+    "deepest_level_reached": 21
+  }
+],
+
+
+
+		"table-group-breakdown": [
+  {
+    "kingdom_name": "Animalia",
+    "rank_name": "Species",
+    "taxon_count": 613365
+  },
+  {
+    "kingdom_name": "Plantae",
+    "rank_name": "Species",
+    "taxon_count": 113208
+  },
+  {
+    "kingdom_name": "Animalia",
+    "rank_name": "Subspecies",
+    "taxon_count": 81529
+  },
+  {
+    "kingdom_name": "Animalia",
+    "rank_name": "Genus",
+    "taxon_count": 68926
+  },
+  {
+    "kingdom_name": "Plantae",
+    "rank_name": "Variety",
+    "taxon_count": 32012
+  },
+  {
+    "kingdom_name": "Bacteria",
+    "rank_name": "Species",
+    "taxon_count": 16614
+  },
+  {
+    "kingdom_name": "Plantae",
+    "rank_name": "Subspecies",
+    "taxon_count": 9586
+  },
+  {
+    "kingdom_name": "Plantae",
+    "rank_name": "Genus",
+    "taxon_count": 9213
+  },
+  {
+    "kingdom_name": "Animalia",
+    "rank_name": "Family",
+    "taxon_count": 7767
+  },
+  {
+    "kingdom_name": "Chromista",
+    "rank_name": "Species",
+    "taxon_count": 6562
+  },
+  {
+    "kingdom_name": "Animalia",
+    "rank_name": "Subgenus",
+    "taxon_count": 3989
+  },
+  {
+    "kingdom_name": "Animalia",
+    "rank_name": "Subfamily",
+    "taxon_count": 3371
+  },
+  {
+    "kingdom_name": "Fungi",
+    "rank_name": "Species",
+    "taxon_count": 2987
+  },
+  {
+    "kingdom_name": "Bacteria",
+    "rank_name": "Genus",
+    "taxon_count": 2540
+  },
+  {
+    "kingdom_name": "Protozoa",
+    "rank_name": "Species",
+    "taxon_count": 2328
+  },
+  {
+    "kingdom_name": "Animalia",
+    "rank_name": "Tribe",
+    "taxon_count": 2309
+  },
+  {
+    "kingdom_name": "Plantae",
+    "rank_name": "Family",
+    "taxon_count": 1778
+  },
+  {
+    "kingdom_name": "Chromista",
+    "rank_name": "Variety",
+    "taxon_count": 1398
+  },
+  {
+    "kingdom_name": "Plantae",
+    "rank_name": "Form",
+    "taxon_count": 1001
+  },
+  {
+    "kingdom_name": "Fungi",
+    "rank_name": "Genus",
+    "taxon_count": 960
+  }
+],
+
+
+
+		"table-deep-taxa": [
+  {
+    "tsn": 704980,
+    "scientific_or_complete_name": "Trachyderes mandibularis mandibularis",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 704981,
+    "scientific_or_complete_name": "Trachyderes mandibularis reductus",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 704982,
+    "scientific_or_complete_name": "Trachyderes mandibularis virens",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 705118,
+    "scientific_or_complete_name": "Trachyderes succinctus succinctus",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810043,
+    "scientific_or_complete_name": "Acmaeodera dolorosa dolorosa",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810044,
+    "scientific_or_complete_name": "Acmaeodera dolorosa liberta",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810045,
+    "scientific_or_complete_name": "Acmaeodera latiflava latiflava",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810046,
+    "scientific_or_complete_name": "Acmaeodera latiflava lineipicta",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810047,
+    "scientific_or_complete_name": "Acmaeodera mariposa mariposa",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810048,
+    "scientific_or_complete_name": "Acmaeodera mariposa dohrni",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810049,
+    "scientific_or_complete_name": "Acmaeodera pubiventris pubiventris",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810050,
+    "scientific_or_complete_name": "Acmaeodera pubiventris lanata",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810051,
+    "scientific_or_complete_name": "Acmaeodera pubiventris panocheae",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810052,
+    "scientific_or_complete_name": "Acmaeodera pubiventris yumae",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810053,
+    "scientific_or_complete_name": "Acmaeodera sinuata sinuata",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810054,
+    "scientific_or_complete_name": "Acmaeodera sinuata sexnotata",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810056,
+    "scientific_or_complete_name": "Gyascutus planicosta planicosta",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810057,
+    "scientific_or_complete_name": "Gyascutus planicosta cribriceps",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810058,
+    "scientific_or_complete_name": "Gyascutus planicosta obliteratus",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  },
+  {
+    "tsn": 810059,
+    "scientific_or_complete_name": "Dicerca callosa callosa",
+    "kingdom": "Animalia",
+    "rank": 230,
+    "depth_level": 21
+  }
+],
+
+
+
+		"insight-kingdom-cov": [
+  {
+    "kingdom_name": "Animalia",
+    "total_records": 784692,
+    "distinct_tsn_count": 784692
+  },
+  {
+    "kingdom_name": "Plantae",
+    "total_records": 168097,
+    "distinct_tsn_count": 168097
+  },
+  {
+    "kingdom_name": "Bacteria",
+    "total_records": 21602,
+    "distinct_tsn_count": 21602
+  },
+  {
+    "kingdom_name": "Chromista",
+    "total_records": 9370,
+    "distinct_tsn_count": 9370
+  },
+  {
+    "kingdom_name": "Fungi",
+    "total_records": 5141,
+    "distinct_tsn_count": 5141
+  },
+  {
+    "kingdom_name": "Protozoa",
+    "total_records": 3646,
+    "distinct_tsn_count": 3646
+  },
+  {
+    "kingdom_name": "Archaea",
+    "total_records": 619,
+    "distinct_tsn_count": 619
+  }
+],
+
+
+
+		"insight-rank-depth": [
+  {
+    "rank_name": "Species",
+    "level": 18,
+    "record_count": 73834
+  },
+  {
+    "rank_name": "Species",
+    "level": 11,
+    "record_count": 70552
+  },
+  {
+    "rank_name": "Species",
+    "level": 10,
+    "record_count": 61567
+  },
+  {
+    "rank_name": "Species",
+    "level": 16,
+    "record_count": 59883
+  },
+  {
+    "rank_name": "Species",
+    "level": 17,
+    "record_count": 51733
+  },
+  {
+    "rank_name": "Species",
+    "level": 13,
+    "record_count": 46865
+  },
+  {
+    "rank_name": "Species",
+    "level": 15,
+    "record_count": 37420
+  },
+  {
+    "rank_name": "Species",
+    "level": 14,
+    "record_count": 34744
+  },
+  {
+    "rank_name": "Species",
+    "level": 12,
+    "record_count": 29253
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 12,
+    "record_count": 21759
+  },
+  {
+    "rank_name": "Species",
+    "level": 19,
+    "record_count": 20350
+  },
+  {
+    "rank_name": "Species",
+    "level": 7,
+    "record_count": 15514
+  },
+  {
+    "rank_name": "Species",
+    "level": 9,
+    "record_count": 13499
+  },
+  {
+    "rank_name": "Genus",
+    "level": 10,
+    "record_count": 9888
+  },
+  {
+    "rank_name": "Genus",
+    "level": 12,
+    "record_count": 7840
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 19,
+    "record_count": 7812
+  },
+  {
+    "rank_name": "Genus",
+    "level": 15,
+    "record_count": 7604
+  },
+  {
+    "rank_name": "Genus",
+    "level": 9,
+    "record_count": 7105
+  },
+  {
+    "rank_name": "Genus",
+    "level": 17,
+    "record_count": 6874
+  },
+  {
+    "rank_name": "Species",
+    "level": 8,
+    "record_count": 6754
+  },
+  {
+    "rank_name": "Genus",
+    "level": 14,
+    "record_count": 5977
+  },
+  {
+    "rank_name": "Variety",
+    "level": 12,
+    "record_count": 5910
+  },
+  {
+    "rank_name": "Genus",
+    "level": 13,
+    "record_count": 5740
+  },
+  {
+    "rank_name": "Genus",
+    "level": 16,
+    "record_count": 5280
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 13,
+    "record_count": 4909
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 18,
+    "record_count": 3604
+  },
+  {
+    "rank_name": "Genus",
+    "level": 11,
+    "record_count": 3454
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 17,
+    "record_count": 3402
+  },
+  {
+    "rank_name": "Genus",
+    "level": 6,
+    "record_count": 3258
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 16,
+    "record_count": 3026
+  },
+  {
+    "rank_name": "Genus",
+    "level": 8,
+    "record_count": 2788
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 15,
+    "record_count": 2720
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 14,
+    "record_count": 2565
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 20,
+    "record_count": 1913
+  },
+  {
+    "rank_name": "Species",
+    "level": 6,
+    "record_count": 1795
+  },
+  {
+    "rank_name": "Variety",
+    "level": 10,
+    "record_count": 1659
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 11,
+    "record_count": 1581
+  },
+  {
+    "rank_name": "Family",
+    "level": 11,
+    "record_count": 1274
+  },
+  {
+    "rank_name": "Family",
+    "level": 9,
+    "record_count": 1273
+  },
+  {
+    "rank_name": "Species",
+    "level": 20,
+    "record_count": 1269
+  },
+  {
+    "rank_name": "Variety",
+    "level": 11,
+    "record_count": 1173
+  },
+  {
+    "rank_name": "Genus",
+    "level": 7,
+    "record_count": 1165
+  },
+  {
+    "rank_name": "Family",
+    "level": 7,
+    "record_count": 984
+  },
+  {
+    "rank_name": "Family",
+    "level": 12,
+    "record_count": 973
+  },
+  {
+    "rank_name": "Family",
+    "level": 14,
+    "record_count": 960
+  },
+  {
+    "rank_name": "Tribe",
+    "level": 16,
+    "record_count": 918
+  },
+  {
+    "rank_name": "Subfamily",
+    "level": 15,
+    "record_count": 897
+  },
+  {
+    "rank_name": "Family",
+    "level": 8,
+    "record_count": 822
+  },
+  {
+    "rank_name": "Variety",
+    "level": 8,
+    "record_count": 806
+  },
+  {
+    "rank_name": "Family",
+    "level": 13,
+    "record_count": 728
+  },
+  {
+    "rank_name": "Genus",
+    "level": 5,
+    "record_count": 719
+  },
+  {
+    "rank_name": "Subgenus",
+    "level": 16,
+    "record_count": 686
+  },
+  {
+    "rank_name": "Family",
+    "level": 5,
+    "record_count": 665
+  },
+  {
+    "rank_name": "Genus",
+    "level": 18,
+    "record_count": 610
+  },
+  {
+    "rank_name": "Family",
+    "level": 10,
+    "record_count": 595
+  },
+  {
+    "rank_name": "Subgenus",
+    "level": 18,
+    "record_count": 589
+  },
+  {
+    "rank_name": "Subgenus",
+    "level": 15,
+    "record_count": 585
+  },
+  {
+    "rank_name": "Subfamily",
+    "level": 13,
+    "record_count": 514
+  },
+  {
+    "rank_name": "Subgenus",
+    "level": 17,
+    "record_count": 495
+  },
+  {
+    "rank_name": "Tribe",
+    "level": 14,
+    "record_count": 470
+  },
+  {
+    "rank_name": "Family",
+    "level": 6,
+    "record_count": 460
+  },
+  {
+    "rank_name": "Form",
+    "level": 8,
+    "record_count": 377
+  },
+  {
+    "rank_name": "Variety",
+    "level": 13,
+    "record_count": 357
+  },
+  {
+    "rank_name": "Subfamily",
+    "level": 14,
+    "record_count": 354
+  },
+  {
+    "rank_name": "Tribe",
+    "level": 15,
+    "record_count": 329
+  },
+  {
+    "rank_name": "Subfamily",
+    "level": 12,
+    "record_count": 304
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 8,
+    "record_count": 283
+  },
+  {
+    "rank_name": "Subfamily",
+    "level": 11,
+    "record_count": 277
+  },
+  {
+    "rank_name": "Order",
+    "level": 4,
+    "record_count": 256
+  },
+  {
+    "rank_name": "Order",
+    "level": 8,
+    "record_count": 228
+  },
+  {
+    "rank_name": "Subfamily",
+    "level": 9,
+    "record_count": 224
+  },
+  {
+    "rank_name": "Order",
+    "level": 6,
+    "record_count": 216
+  },
+  {
+    "rank_name": "Subfamily",
+    "level": 10,
+    "record_count": 203
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 10,
+    "record_count": 196
+  },
+  {
+    "rank_name": "Superfamily",
+    "level": 11,
+    "record_count": 196
+  },
+  {
+    "rank_name": "Superfamily",
+    "level": 13,
+    "record_count": 192
+  },
+  {
+    "rank_name": "Family",
+    "level": 4,
+    "record_count": 177
+  },
+  {
+    "rank_name": "Order",
+    "level": 7,
+    "record_count": 172
+  },
+  {
+    "rank_name": "Subgenus",
+    "level": 14,
+    "record_count": 158
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 9,
+    "record_count": 155
+  },
+  {
+    "rank_name": "Superfamily",
+    "level": 12,
+    "record_count": 128
+  },
+  {
+    "rank_name": "Order",
+    "level": 5,
+    "record_count": 120
+  },
+  {
+    "rank_name": "Suborder",
+    "level": 10,
+    "record_count": 118
+  },
+  {
+    "rank_name": "Subtribe",
+    "level": 17,
+    "record_count": 117
+  },
+  {
+    "rank_name": "Superfamily",
+    "level": 10,
+    "record_count": 111
+  },
+  {
+    "rank_name": "Subgenus",
+    "level": 11,
+    "record_count": 108
+  },
+  {
+    "rank_name": "Superfamily",
+    "level": 9,
+    "record_count": 108
+  },
+  {
+    "rank_name": "Order",
+    "level": 10,
+    "record_count": 98
+  },
+  {
+    "rank_name": "Order",
+    "level": 9,
+    "record_count": 93
+  },
+  {
+    "rank_name": "Subspecies",
+    "level": 21,
+    "record_count": 92
+  },
+  {
+    "rank_name": "Suborder",
+    "level": 11,
+    "record_count": 89
+  },
+  {
+    "rank_name": "Tribe",
+    "level": 13,
+    "record_count": 86
+  },
+  {
+    "rank_name": "Class",
+    "level": 3,
+    "record_count": 80
+  },
+  {
+    "rank_name": "Subgenus",
+    "level": 12,
+    "record_count": 78
+  },
+  {
+    "rank_name": "Subgenus",
+    "level": 13,
+    "record_count": 75
+  },
+  {
+    "rank_name": "Infraorder",
+    "level": 12,
+    "record_count": 73
+  },
+  {
+    "rank_name": "Tribe",
+    "level": 12,
+    "record_count": 69
+  },
+  {
+    "rank_name": "Order",
+    "level": 3,
+    "record_count": 68
+  },
+  {
+    "rank_name": "Class",
+    "level": 5,
+    "record_count": 67
+  },
+  {
+    "rank_name": "Form",
+    "level": 12,
+    "record_count": 63
+  }
+],
+
+
+
+
+	};
+
+document.addEventListener('DOMContentLoaded', () => {
+	for (const template of document.querySelectorAll('template[data-dashboard-element-template]')) {
+		const target = document.getElementById(template.dataset.dashboardElementTemplate);
+		if (target) {
+			target.replaceChildren(template.content.cloneNode(true));
+		}
+	}
+
+	const getData = (key) => window.dashboardData?.[key] ?? [];
+	const firstRow = (key) => {
+		const rows = getData(key);
+		return Array.isArray(rows) ? rows[0] : rows;
+	};
+	const formatNumber = (value, maximumFractionDigits = 0) => {
+		const number = Number(value);
+		return Number.isFinite(number) ? new Intl.NumberFormat(undefined, { maximumFractionDigits }).format(number) : '-';
+	};
+	const formatCurrency = (value, currency = 'USD') => {
+		const number = Number(value);
+		return Number.isFinite(number) ? new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(number) : '-';
+	};
+	const formatPercent = (value, maximumFractionDigits = 1) => {
+		const number = Number(value);
+		return Number.isFinite(number) ? formatNumber(number, maximumFractionDigits) + '%' : '-';
+	};
+	const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({
+		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+	}[char]));
+	const elementScripts = [
+
+
+
+
+		{
+			id: "metric-kingdom-count",
+			script: "const rows = getData(\"metric-kingdom-count\");\nconst row = rows && rows.length ? rows[0] : null;\nconst value = row ? row[\"kingdom_count\"] : null;\nconst el = document.getElementById(\"metric-kingdom-count-value\");\nif (el) {\n  if (value === null || value === undefined || value === \"\") {\n    el.textContent = \"\";\n  } else {\n    el.textContent = formatNumber(value, 0);\n  }\n}",
+		},
+
+
+
+		{
+			id: "metric-taxon-count",
+			script: "const data = getData(\"metric-taxon-count\");\nconst row = firstRow(\"metric-taxon-count\");\nlet value = null;\nif (row && Object.prototype.hasOwnProperty.call(row, \"total_taxonomic_units\")) {\n  value = row[\"total_taxonomic_units\"];\n}\nconst el = document.getElementById(\"metric-taxon-count-value\");\nif (el) {\n  if (value === null || value === undefined || value === \"\") {\n    el.textContent = \"—\";\n  } else {\n    el.textContent = formatNumber(value, 0);\n  }\n}",
+		},
+
+
+
+		{
+			id: "metric-rank-count",
+			script: "const rows = getData(\"metric-rank-count\");\nconst row = firstRow(\"metric-rank-count\");\nconst value = row && row[\"distinct_taxonomic_ranks\"] != null ? row[\"distinct_taxonomic_ranks\"] : null;\nconst el = document.getElementById(\"metric-rank-count-value\");\nel.textContent = value == null ? \"—\" : formatNumber(value, 0);",
+		},
+
+
+
+		{
+			id: "metric-deepest-level",
+			script: "const row = firstRow(\"metric-deepest-level\");\nconst value = row && row[\"max_hierarchy_level\"] != null ? row[\"max_hierarchy_level\"] : null;\nconst el = document.getElementById(\"metric-deepest-level-value\");\nif (el) {\n  el.textContent = value == null ? \"—\" : formatNumber(value, 0);\n}",
+		},
+
+
+
+		{
+			id: "chart-kingdom-overview",
+			script: "const data = getData(\"chart-kingdom-overview\");\nconst first = firstRow(\"chart-kingdom-overview\");\nconst canvas = document.getElementById(\"chart-kingdom-overview-canvas\");\nif (!canvas) throw new Error(\"Missing canvas: chart-kingdom-overview-canvas\");\n\nconst container = canvas.parentElement;\nconst existing = Chart.getChart(canvas);\nif (existing) existing.destroy();\n\nconst rows = (data && Array.isArray(data) ? data : (first ? [first] : []));\n\nif (!rows || rows.length < 2) {\n  if (container) {\n    container.innerHTML = \"\";\n  }\n  const el = document.createElement(\"div\");\n  el.className = \"p-3 text-muted small\";\n  const message = rows && rows.length === 1\n    ? (escapeHtml(rows[0].kingdom_name || \"\") + \": \" + (typeof rows[0].taxon_count === \"number\" ? formatNumber(rows[0].taxon_count, 0) : \"—\"))\n    : \"Not enough data to render the chart.\";\n  el.textContent = message;\n  container.appendChild(el);\n} else {\n  const ordered = rows.slice(0);\n  const labels = ordered.slice(0, 12).map(r => r.kingdom_name);\n  const counts = ordered.slice(0, 12).map(r => r.taxon_count);\n\n  const ctx = canvas.getContext(\"2d\");\n  const chart = new Chart(ctx, {\n    type: \"bar\",\n    data: {\n      labels,\n      datasets: [\n        {\n          label: \"Taxon count\",\n          data: counts,\n          borderWidth: 0,\n          backgroundColor: \"rgba(13, 110, 253, 0.65)\"\n        }\n      ]\n    },\n    options: {\n      responsive: true,\n      maintainAspectRatio: false,\n      indexAxis: \"y\",\n      plugins: {\n        legend: {\n          display: false\n        },\n        tooltip: {\n          callbacks: {\n            label: function(context) {\n              const v = context.parsed.x;\n              return \"Taxon count: \" + formatNumber(v, 0);\n            }\n          }\n        }\n      },\n      scales: {\n        x: {\n          beginAtZero: true,\n          ticks: {\n            callback: function(value) {\n              return formatNumber(value, 0);\n            }\n          },\n          grid: {\n            drawOnChartArea: true\n          },\n          title: {\n            display: false\n          }\n        },\n        y: {\n          grid: {\n            drawOnChartArea: false\n          },\n          ticks: {\n            autoSkip: false\n          }\n        }\n      }\n    }\n  });\n}",
+		},
+
+
+
+		{
+			id: "chart-rank-spectrum",
+			script: "const el = document.getElementById('chart-rank-spectrum');\nconst valueAnchor = el.querySelector('#chart-rank-spectrum-canvas');\nconst dataKey = 'chart-rank-spectrum';\nconst rows = (getData(dataKey) || []);\nif (!rows || rows.length < 2) {\n  const cardBody = el.querySelector('.card-body');\n  const safeRows = Array.isArray(rows) ? rows : [];\n  const first = safeRows[0] || {};\n  cardBody.innerHTML = '';\n  cardBody.insertAdjacentHTML('beforeend','<h6 class=\"card-title fw-semibold mb-1\">Coverage by Rank</h6>');\n  cardBody.insertAdjacentHTML('beforeend','<div class=\"text-muted small mb-3\">Distribution of taxonomic units across taxonomic ranks, showing the breadth of representation from higher to lower ranks.</div>');\n  const table = document.createElement('div');\n  table.innerHTML = '<div class=\"table-responsive\"><table class=\"table table-sm mb-0\"><thead><tr><th>Rank</th><th class=\"text-end\">Taxon units</th></tr></thead><tbody></tbody></table></div>';\n  const tbody = table.querySelector('tbody');\n  safeRows.slice(0, 8).forEach(r => {\n    const tr = document.createElement('tr');\n    tr.innerHTML = '<td>'+ escapeHtml(r.rank_name ?? '') +'</td><td class=\"text-end\">'+ formatNumber(r.taxon_unit_count ?? 0, 0) +'</td>';\n    tbody.appendChild(tr);\n  });\n  cardBody.appendChild(table);\n} else {\n  const ctx = valueAnchor.getContext('2d');\n  const ordered = rows.slice(0).slice(0, 12);\n  const labels = ordered.map(r => r.rank_name ?? '');\n  const counts = ordered.map(r => Number(r.taxon_unit_count ?? 0));\n\n  const data = {\n    labels: labels,\n    datasets: [\n      {\n        label: 'Taxon units',\n        data: counts,\n        borderWidth: 0,\n        backgroundColor: 'rgba(13, 110, 253, 0.65)'\n      }\n    ]\n  };\n\n  const chart = new Chart(ctx, {\n    type: 'bar',\n    data,\n    options: {\n      indexAxis: 'y',\n      responsive: true,\n      maintainAspectRatio: false,\n      plugins: {\n        legend: { display: false },\n        tooltip: {\n          callbacks: {\n            label: (context) => {\n              const v = context.raw;\n              return ' ' + formatNumber(v, 0) + ' taxon units';\n            }\n          }\n        }\n      },\n      scales: {\n        x: {\n          beginAtZero: true,\n          ticks: {\n            callback: (value) => formatNumber(value, 0)\n          },\n          title: {\n            display: false\n          }\n        },\n        y: {\n          ticks: {\n            autoSkip: false,\n            maxRotation: 0,\n            minRotation: 0\n          },\n          grid: {\n            display: false\n          }\n        }\n      }\n    }\n  });\n}",
+		},
+
+
+
+		{
+			id: "chart-depth-profile",
+			script: "const dataKey = \"chart-depth-profile\";\nconst rows = getData(dataKey) || [];\nconst tbody = null;\nconst canvas = document.getElementById(\"chart-depth-profile-canvas\");\nif (!canvas) {\n  return;\n}\n\nconst chartContainer = canvas.closest(\".card-body\");\n\nif (!rows || rows.length < 2) {\n  const count = rows && rows.length ? rows.length : 0;\n  const existing = chartContainer.querySelector(\".depth-profile-fallback\");\n  if (existing) existing.remove();\n  const wrap = document.createElement(\"div\");\n  wrap.className = \"depth-profile-fallback text-muted small\";\n  wrap.textContent = count === 0 ? \"No data available.\" : \"Not enough data to render a chart.\";\n  chartContainer.appendChild(wrap);\n  return;\n}\n\nconst ordered = rows.slice(0, 12);\nconst labels = ordered.map(r => String(r.level));\nconst values = ordered.map(r => Number(r.taxonomic_units) || 0);\n\nconst ctx = canvas.getContext(\"2d\");\n\nif (canvas._chart) {\n  canvas._chart.destroy();\n}\n\nconst hasSecondMeasure = rows.some(r => r.deepest_level_reached !== undefined && r.deepest_level_reached !== null);\nlet config;\n\nif (hasSecondMeasure && rows.some(r => (Number(r.deepest_level_reached) || 0) !== (Number(r.deepest_level_reached) || 0))) {\n  // no-op\n}\n\n// Use a single dataset (taxonomic_units) as the primary, and keep the deepest_level_reached in tooltip.\nconst datasetLabel = \"Taxonomic units\";\nconst deepestByIndex = ordered.map(r => Number(r.deepest_level_reached) || 0);\n\nconfig = {\n  type: \"bar\",\n  data: {\n    labels: labels,\n    datasets: [\n      {\n        label: datasetLabel,\n        data: values,\n        backgroundColor: \"rgba(13, 110, 253, 0.35)\",\n        borderColor: \"rgba(13, 110, 253, 1)\",\n        borderWidth: 1\n      }\n    ]\n  },\n  options: {\n    indexAxis: \"y\",\n    responsive: true,\n    maintainAspectRatio: false,\n    plugins: {\n      legend: {\n        display: false\n      },\n      tooltip: {\n        callbacks: {\n          afterLabel: (context) => {\n            const i = context.dataIndex;\n            const deepest = deepestByIndex[i];\n            return deepest !== undefined ? `Deepest level reached: ${deepest}` : \"\";\n          }\n        }\n      }\n    },\n    scales: {\n      x: {\n        beginAtZero: true,\n        grid: {\n          color: \"rgba(0,0,0,0.06)\"\n        },\n        ticks: {\n          callback: (value) => formatNumber(value, 0)\n        }\n      },\n      y: {\n        grid: {\n          display: false\n        },\n        ticks: {\n          maxRotation: 0,\n          minRotation: 0\n        }\n      }\n    }\n  }\n};\n\ncanvas._chart = new Chart(ctx, config);",
+		},
+
+
+
+		{
+			id: "table-group-breakdown",
+			script: "const key = \"table-group-breakdown\";\nconst rows = getData(key) || [];\nconst tbody = document.getElementById(\"table-group-breakdown-table-body\");\nif (tbody) {\n  tbody.innerHTML = \"\";\n  const dataRows = Array.isArray(rows) ? rows.slice(0, 50) : [];\n  for (const r of dataRows) {\n    const kingdom = escapeHtml(r.kingdom_name ?? \"\");\n    const rank = escapeHtml(r.rank_name ?? \"\");\n    const countVal = r.taxon_count ?? \"\";\n    const countText = (countVal === null || countVal === undefined || countVal === \"\") ? \"\" : formatNumber(Number(countVal), 0);\n\n    const tr = document.createElement(\"tr\");\n    tr.innerHTML = `\n      <td>${kingdom}</td>\n      <td>${rank}</td>\n      <td class=\"text-end\">${escapeHtml(countText)}</td>\n    `;\n    tbody.appendChild(tr);\n  }\n}",
+		},
+
+
+
+		{
+			id: "table-deep-taxa",
+			script: "const data = getData(\"table-deep-taxa\");\nconst tbody = document.getElementById(\"table-deep-taxa-table-body\");\nif (tbody) {\n  const rows = Array.isArray(data) ? data : [];\n  tbody.innerHTML = \"\";\n  rows.slice(0, 50).forEach(r => {\n    const tr = document.createElement(\"tr\");\n\n    const tdTsn = document.createElement(\"td\");\n    tdTsn.textContent = r[\"tsn\"] ?? \"\";\n    tr.appendChild(tdTsn);\n\n    const tdName = document.createElement(\"td\");\n    tdName.innerHTML = escapeHtml(r[\"scientific_or_complete_name\"] ?? \"\");\n    tr.appendChild(tdName);\n\n    const tdKingdom = document.createElement(\"td\");\n    tdKingdom.textContent = r[\"kingdom\"] ?? \"\";\n    tr.appendChild(tdKingdom);\n\n    const tdRank = document.createElement(\"td\");\n    tdRank.textContent = formatNumber(r[\"rank\"] ?? 0, 0);\n    tr.appendChild(tdRank);\n\n    const tdDepth = document.createElement(\"td\");\n    tdDepth.textContent = formatNumber(r[\"depth_level\"] ?? 0, 0);\n    tr.appendChild(tdDepth);\n\n    tbody.appendChild(tr);\n  });\n}",
+		},
+
+
+
+
+
+
+
+
+	];
+	for (const elementScript of elementScripts) {
+		try {
+			new Function(
+				'getData',
+				'firstRow',
+				'formatNumber',
+				'formatCurrency',
+				'formatPercent',
+				'escapeHtml',
+				elementScript.script
+			)(getData, firstRow, formatNumber, formatCurrency, formatPercent, escapeHtml);
+		} catch (error) {
+			console.error('Dashboard element failed:', elementScript.id, error);
+		}
+	}
+});
+	</script>
+</body>
+
+</html>

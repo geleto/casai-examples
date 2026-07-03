@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<title>Rental and Payment Activity Overview</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css" rel="stylesheet" />
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+	<style>
+		.dashboard-container {
+			max-width: 1480px;
+		}
+		.dashboard-element, .dashboard-element > .card, .dashboard-element .card-body {
+			min-width: 0;
+		}
+		.dashboard-element {
+			display: flex;
+			align-items: stretch;
+			flex-direction: column;
+		}
+		.dashboard-element > * {
+			flex: 1 1 auto;
+			min-width: 0;
+			width: 100%;
+			height: 100%;
+		}
+		.dashboard-element .card > :not(.card-body) {
+			margin: 0 var(--bs-card-spacer-x) var(--bs-card-spacer-y);
+		}
+		.dashboard-element-table .card-body {
+			display: flex;
+			flex-direction: column;
+		}
+		.dashboard-element-table .table-responsive {
+			max-height: 360px;
+			overflow: auto;
+		}
+		.dashboard-element-metric .metric-value-number {
+			display: block;
+			margin-top: 0.75rem;
+			font-size: 2.5rem !important;
+			font-weight: 700 !important;
+			line-height: 1.1;
+		}
+		.dashboard-element-header + .dashboard-element-metric .metric-value-number {
+			font-size: 3rem !important;
+		}
+		.dashboard-element-metric [id$="-label"] {
+			margin-top: 0.25rem;
+			color: var(--bs-secondary-color);
+			font-size: 0.875rem;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container dashboard-container my-4">
+		<div class="row g-3">
+
+			<div id="header-dashboard-header" class="col-12 dashboard-element dashboard-element-header">
+
+				<template data-dashboard-element-template="header-dashboard-header">
+<div class="d-flex flex-column gap-2">
+  <h2 class="mb-0">Rental and Payment Activity Overview</h2>
+  <p class="text-muted mb-0">Use the metrics below to quickly orient yourself to where rental and payment activity is concentrated across stores, customers, staff, dates, and film categories.</p>
+</div>
+				</template>
+
+			</div>
+
+			<div id="metric-total-rentals" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-total-rentals">
+<div class="card h-100"><div class="card-body"><div class="mb-2"><h6 class="card-title fw-semibold mb-1">Total Rentals</h6><div class="text-muted small">Total number of rental transactions recorded in the dataset.</div></div><div><div id="metric-total-rentals-label" class="text-muted small mb-1"></div><div id="metric-total-rentals-value" class="metric-value-number">—</div></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-total-payments" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-total-payments">
+<div class="card h-100"><div class="card-body"><div><h6 class="card-title fw-semibold mb-1">Total Payments</h6><div class="text-muted small">Total number of payment records recorded in the dataset.</div></div><div class="mt-3"><div id="metric-total-payments-label" class="text-muted small"></div><div id="metric-total-payments-value" class="metric-value-number fw-semibold"></div></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-rental-revenue" class="col-12 col-md-4 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-rental-revenue">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Total Payment Amount</h6><div id="metric-rental-revenue-label" class="text-muted small mb-2">Sum of all payment amounts recorded in the dataset.</div><div id="metric-rental-revenue-value" class="metric-value-number">&nbsp;</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-active-customers" class="col-12 col-md-4 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-active-customers">
+<div class="card h-100"><div class="card-body"><div class="mb-2"><h6 class="card-title fw-semibold mb-1">Active Customers</h6></div><div id="metric-active-customers-label" class="text-muted small mb-2">Active status</div><div id="metric-active-customers-value" class="metric-value-number">—</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-stores-count" class="col-12 col-md-4 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-stores-count">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Stores</h6><div class="text-muted small">Number of stores represented in the dataset.</div><div class="metric-value-number" id="metric-stores-count-value">—</div><div id="metric-stores-count-label" class="text-muted small" style="display:none"></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-activity-trend" class="col-12 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-activity-trend">
+<div class="card h-100"><div class="card-body"><div><h6 class="card-title fw-semibold mb-1">Rental and payment activity over time</h6><div class="text-muted small">Shows how rentals and payment totals change by time period, with separate series for each store to reveal concentration and peaks.</div></div><div style="position: relative; height: 420px; width: 100%; margin-top: 12px;"><canvas id="chart-activity-trend-canvas"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-store-category" class="col-12 col-md-6 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-store-category">
+<div class="card h-100"><div class="card-body"><div class="mb-2"><div class="d-flex align-items-start justify-content-between gap-3 flex-wrap"><div><h6 class="card-title fw-semibold mb-1">Activity by store and film category</h6><div class="text-muted small">Compares which film categories drive the most rental and payment activity in each store.</div></div></div></div><div style="position: relative; height: 420px; width: 100%;"><canvas id="chart-store-category-canvas"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="table-top-customers" class="col-12 col-md-6 dashboard-element dashboard-element-table">
+
+				<template data-dashboard-element-template="table-top-customers">
+<div class="card h-100"><div class="card-body"><div class="mb-2"><h6 class="card-title fw-semibold mb-1">Top customers by activity</h6><div class="text-muted small">Ranks customers by rental count and payment amount.</div></div><div class="table-responsive"><table class="table table-sm align-middle" aria-label="Top customers by activity"><thead><tr><th scope="col">Customer</th><th scope="col">Store</th><th scope="col">Rentals</th><th scope="col">Payments</th><th scope="col" class="text-end">Total payment amount</th></tr></thead><tbody id="table-top-customers-table-body"></tbody></table></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="table-staff-store-summary" class="col-12 col-md-6 dashboard-element dashboard-element-table">
+
+				<template data-dashboard-element-template="table-staff-store-summary">
+<div class="card h-100"><div class="card-body"><div class="mb-2"><div class="d-flex flex-column gap-1"><h6 class="card-title fw-semibold mb-0">Staff and store activity summary</h6><div class="text-muted small">Summarizes rental and payment volume by staff member and store to show where operational activity is concentrated.</div></div></div><div class="table-responsive"><table class="table table-sm align-middle mb-0" aria-label="Staff and store activity summary"><thead><tr><th scope="col">Staff</th><th scope="col">Store</th><th scope="col">Rentals</th><th scope="col">Payments</th><th scope="col" class="text-end">Total payment amount</th></tr></thead><tbody id="table-staff-store-summary-table-body"></tbody></table></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="insight-store-activity" class="col-12 col-md-6 dashboard-element dashboard-element-insight">
+
+				<template data-dashboard-element-template="insight-store-activity">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Store activity concentration</h6><div class="text-muted small mb-3">Summarize rental and payment activity by store to show where overall activity is concentrated.</div><div><ul>
+  <li><strong>Store 2</strong> shows the highest activity in this excerpt, with <strong>8,121 rentals</strong>, <strong>8,121 payments</strong>, and <strong>$33,726.77</strong> in total payments.</li>
+  <li><strong>Store 1</strong> is very close behind, with <strong>7,923 rentals</strong>, <strong>7,923 payments</strong>, and <strong>$33,679.79</strong> in total payments.</li>
+  <li>The two stores are nearly tied on payment revenue, with only about <strong>$47</strong> separating them, suggesting activity is fairly evenly distributed overall.</li>
+  <li>Store 2 has a slight edge in both transaction volume and revenue, but the difference is small enough that neither store dominates the business in this excerpt.</li>
+</ul></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="insight-customer-focus" class="col-12 col-md-6 dashboard-element dashboard-element-insight">
+
+				<template data-dashboard-element-template="insight-customer-focus">
+<div class="card h-100"><div class="card-body"><h5 class="mb-2">Most active customers</h5><div class="text-muted small mb-3">Highlight the customers with the highest combined rental and payment activity.</div><ul><li><strong>KARL SEAL</strong> ranks first in the visible excerpt with a combined activity score of <strong>10,059.75</strong>, driven by <strong>45 rentals</strong> and <strong>45 payments</strong> totaling <strong>9,969.75</strong>.</li><li><strong>ELEANOR HUNT</strong> is a very close second at <strong>10,052.84</strong>, with the highest visible counts in the excerpt: <strong>46 rentals</strong> and <strong>46 payments</strong>, plus <strong>9,960.84</strong> in payments.</li><li>The top customers are tightly clustered: after the top two, scores fall to the <strong>8,200–7,600</strong> range for customers like <strong>CLARA SHAW</strong>, <strong>RHONDA KENNEDY</strong>, and <strong>MARION SNYDER</strong>.</li><li>Within the visible rows, <strong>rental_count and payment_count move together exactly</strong> for every customer shown, suggesting the combined score is mainly separating customers by volume plus total spend.</li><li>The visible top 20 are all heavy users, with most customers showing roughly <strong>34–46 rentals/payments</strong> and total payment amounts generally above <strong>5,600</strong>.</li></ul></div></div>
+				</template>
+
+			</div>
+
+			<div id="text-section-note" class="col-12 col-md-6 dashboard-element dashboard-element-text">
+
+				<template data-dashboard-element-template="text-section-note">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">How to read this section</h6><div class="text-muted small mb-3">This section compares where activity is concentrated across operational dimensions using counts and payment totals.</div><div class="small" id="text-section-note-content">Look for the dimensions with the highest counts and the largest payment totals. Higher counts indicate more activity volume, while higher payment totals indicate greater value passing through those dimensions. Compare across categories to see whether concentration is driven more by frequency (more events) or by value (larger payments).</div></div></div>
+				</template>
+
+			</div>
+
+		</div>
+	</div>
+
+	<script>
+	window.dashboardData = {
+
+
+
+
+		"metric-total-rentals": [
+  {
+    "total_rentals": 16044
+  }
+],
+
+
+
+		"metric-total-payments": [
+  {
+    "headline_value": 16049
+  }
+],
+
+
+
+		"metric-rental-revenue": [
+  {
+    "total_payment_amount": 67416.51000000001
+  }
+],
+
+
+
+		"metric-active-customers": [
+  {
+    "active_customer_count": 584
+  }
+],
+
+
+
+		"metric-stores-count": [
+  {
+    "total_stores": 2
+  }
+],
+
+
+
+		"chart-activity-trend": [
+  {
+    "month": "2005-05",
+    "store_id": 1,
+    "rental_count": 575,
+    "payment_count": 575,
+    "total_payment_amount": 2459.25
+  },
+  {
+    "month": "2005-05",
+    "store_id": 2,
+    "rental_count": 581,
+    "payment_count": 581,
+    "total_payment_amount": 2364.19
+  },
+  {
+    "month": "2005-06",
+    "store_id": 1,
+    "rental_count": 1121,
+    "payment_count": 1121,
+    "total_payment_amount": 4734.79
+  },
+  {
+    "month": "2005-06",
+    "store_id": 2,
+    "rental_count": 1190,
+    "payment_count": 1190,
+    "total_payment_amount": 4895.1
+  },
+  {
+    "month": "2005-07",
+    "store_id": 1,
+    "rental_count": 3334,
+    "payment_count": 3334,
+    "total_payment_amount": 14308.66
+  },
+  {
+    "month": "2005-07",
+    "store_id": 2,
+    "rental_count": 3375,
+    "payment_count": 3375,
+    "total_payment_amount": 14060.25
+  },
+  {
+    "month": "2005-08",
+    "store_id": 1,
+    "rental_count": 2801,
+    "payment_count": 2801,
+    "total_payment_amount": 11933.99
+  },
+  {
+    "month": "2005-08",
+    "store_id": 2,
+    "rental_count": 2885,
+    "payment_count": 2885,
+    "total_payment_amount": 12136.15
+  },
+  {
+    "month": "2006-02",
+    "store_id": 1,
+    "rental_count": 92,
+    "payment_count": 92,
+    "total_payment_amount": 243.10000000000002
+  },
+  {
+    "month": "2006-02",
+    "store_id": 2,
+    "rental_count": 90,
+    "payment_count": 90,
+    "total_payment_amount": 271.08
+  }
+],
+
+
+
+		"chart-store-category": [
+  {
+    "store_id": 2,
+    "category_name": "Sports",
+    "rental_count": 614,
+    "payment_count": 614,
+    "total_payment_amount": 2761.85
+  },
+  {
+    "store_id": 1,
+    "category_name": "Sports",
+    "rental_count": 565,
+    "payment_count": 565,
+    "total_payment_amount": 2552.36
+  },
+  {
+    "store_id": 1,
+    "category_name": "Sci-Fi",
+    "rental_count": 553,
+    "payment_count": 553,
+    "total_payment_amount": 2385.4700000000003
+  },
+  {
+    "store_id": 2,
+    "category_name": "Animation",
+    "rental_count": 584,
+    "payment_count": 584,
+    "total_payment_amount": 2373.13
+  },
+  {
+    "store_id": 2,
+    "category_name": "Sci-Fi",
+    "rental_count": 548,
+    "payment_count": 548,
+    "total_payment_amount": 2371.51
+  },
+  {
+    "store_id": 1,
+    "category_name": "Drama",
+    "rental_count": 528,
+    "payment_count": 528,
+    "total_payment_amount": 2295.7200000000003
+  },
+  {
+    "store_id": 2,
+    "category_name": "Drama",
+    "rental_count": 532,
+    "payment_count": 532,
+    "total_payment_amount": 2291.67
+  },
+  {
+    "store_id": 1,
+    "category_name": "Animation",
+    "rental_count": 582,
+    "payment_count": 582,
+    "total_payment_amount": 2283.17
+  },
+  {
+    "store_id": 1,
+    "category_name": "Action",
+    "rental_count": 562,
+    "payment_count": 562,
+    "total_payment_amount": 2236.35
+  },
+  {
+    "store_id": 2,
+    "category_name": "Comedy",
+    "rental_count": 466,
+    "payment_count": 466,
+    "total_payment_amount": 2207.34
+  },
+  {
+    "store_id": 2,
+    "category_name": "Foreign",
+    "rental_count": 543,
+    "payment_count": 543,
+    "total_payment_amount": 2194.58
+  },
+  {
+    "store_id": 2,
+    "category_name": "New",
+    "rental_count": 451,
+    "payment_count": 451,
+    "total_payment_amount": 2194.4900000000002
+  },
+  {
+    "store_id": 1,
+    "category_name": "Family",
+    "rental_count": 565,
+    "payment_count": 565,
+    "total_payment_amount": 2190.37
+  },
+  {
+    "store_id": 1,
+    "category_name": "Comedy",
+    "rental_count": 475,
+    "payment_count": 475,
+    "total_payment_amount": 2176.2400000000002
+  },
+  {
+    "store_id": 1,
+    "category_name": "Games",
+    "rental_count": 494,
+    "payment_count": 494,
+    "total_payment_amount": 2170.06
+  },
+  {
+    "store_id": 1,
+    "category_name": "New",
+    "rental_count": 489,
+    "payment_count": 489,
+    "total_payment_amount": 2157.13
+  },
+  {
+    "store_id": 2,
+    "category_name": "Action",
+    "rental_count": 550,
+    "payment_count": 550,
+    "total_payment_amount": 2139.5
+  },
+  {
+    "store_id": 2,
+    "category_name": "Documentary",
+    "rental_count": 525,
+    "payment_count": 525,
+    "total_payment_amount": 2138.76
+  },
+  {
+    "store_id": 2,
+    "category_name": "Games",
+    "rental_count": 475,
+    "payment_count": 475,
+    "total_payment_amount": 2111.27
+  },
+  {
+    "store_id": 1,
+    "category_name": "Documentary",
+    "rental_count": 525,
+    "payment_count": 525,
+    "total_payment_amount": 2078.76
+  }
+],
+
+
+
+		"table-top-customers": [
+  {
+    "customer_id": 148,
+    "customer_name": "ELEANOR HUNT",
+    "store_id": 1,
+    "rental_count": 2116,
+    "payment_count": 2116,
+    "total_payment_amount": 9960.84
+  },
+  {
+    "customer_id": 526,
+    "customer_name": "KARL SEAL",
+    "store_id": 2,
+    "rental_count": 2025,
+    "payment_count": 2025,
+    "total_payment_amount": 9969.75
+  },
+  {
+    "customer_id": 144,
+    "customer_name": "CLARA SHAW",
+    "store_id": 1,
+    "rental_count": 1764,
+    "payment_count": 1764,
+    "total_payment_amount": 8214.36
+  },
+  {
+    "customer_id": 236,
+    "customer_name": "MARCIA DEAN",
+    "store_id": 1,
+    "rental_count": 1764,
+    "payment_count": 1764,
+    "total_payment_amount": 7374.360000000001
+  },
+  {
+    "customer_id": 75,
+    "customer_name": "TAMMY SANDERS",
+    "store_id": 2,
+    "rental_count": 1681,
+    "payment_count": 1681,
+    "total_payment_amount": 6379.1900000000005
+  },
+  {
+    "customer_id": 469,
+    "customer_name": "WESLEY BULL",
+    "store_id": 2,
+    "rental_count": 1600,
+    "payment_count": 1600,
+    "total_payment_amount": 7104
+  },
+  {
+    "customer_id": 197,
+    "customer_name": "SUE PETERS",
+    "store_id": 2,
+    "rental_count": 1600,
+    "payment_count": 1600,
+    "total_payment_amount": 6184
+  },
+  {
+    "customer_id": 137,
+    "customer_name": "RHONDA KENNEDY",
+    "store_id": 2,
+    "rental_count": 1521,
+    "payment_count": 1521,
+    "total_payment_amount": 7589.79
+  },
+  {
+    "customer_id": 178,
+    "customer_name": "MARION SNYDER",
+    "store_id": 2,
+    "rental_count": 1521,
+    "payment_count": 1521,
+    "total_payment_amount": 7589.79
+  },
+  {
+    "customer_id": 468,
+    "customer_name": "TIM CARY",
+    "store_id": 1,
+    "rental_count": 1521,
+    "payment_count": 1521,
+    "total_payment_amount": 6848.79
+  },
+  {
+    "customer_id": 459,
+    "customer_name": "TOMMY COLLAZO",
+    "store_id": 1,
+    "rental_count": 1444,
+    "payment_count": 1444,
+    "total_payment_amount": 7091.56
+  },
+  {
+    "customer_id": 410,
+    "customer_name": "CURTIS IRBY",
+    "store_id": 2,
+    "rental_count": 1444,
+    "payment_count": 1444,
+    "total_payment_amount": 6369.56
+  },
+  {
+    "customer_id": 295,
+    "customer_name": "DAISY BATES",
+    "store_id": 1,
+    "rental_count": 1444,
+    "payment_count": 1444,
+    "total_payment_amount": 6179.56
+  },
+  {
+    "customer_id": 5,
+    "customer_name": "ELIZABETH BROWN",
+    "store_id": 1,
+    "rental_count": 1444,
+    "payment_count": 1444,
+    "total_payment_amount": 5495.56
+  },
+  {
+    "customer_id": 176,
+    "customer_name": "JUNE CARROLL",
+    "store_id": 1,
+    "rental_count": 1369,
+    "payment_count": 1369,
+    "total_payment_amount": 6424.31
+  },
+  {
+    "customer_id": 366,
+    "customer_name": "BRANDON HUEY",
+    "store_id": 1,
+    "rental_count": 1369,
+    "payment_count": 1369,
+    "total_payment_amount": 5647.31
+  },
+  {
+    "customer_id": 257,
+    "customer_name": "MARSHA DOUGLAS",
+    "store_id": 2,
+    "rental_count": 1369,
+    "payment_count": 1369,
+    "total_payment_amount": 5610.31
+  },
+  {
+    "customer_id": 198,
+    "customer_name": "ELSIE KELLEY",
+    "store_id": 2,
+    "rental_count": 1369,
+    "payment_count": 1369,
+    "total_payment_amount": 5240.31
+  },
+  {
+    "customer_id": 267,
+    "customer_name": "MARGIE WADE",
+    "store_id": 1,
+    "rental_count": 1296,
+    "payment_count": 1296,
+    "total_payment_amount": 5747.04
+  },
+  {
+    "customer_id": 439,
+    "customer_name": "ALEXANDER FENNELL",
+    "store_id": 2,
+    "rental_count": 1296,
+    "payment_count": 1296,
+    "total_payment_amount": 5459.04
+  }
+],
+
+
+
+		"table-staff-store-summary": [
+  {
+    "staff_id": 2,
+    "first_name": "Jon",
+    "last_name": "Stephens",
+    "store_id": 2,
+    "rental_count": 8004,
+    "payment_count": 7992,
+    "total_payment_amount": 271552028.16
+  },
+  {
+    "staff_id": 1,
+    "first_name": "Mike",
+    "last_name": "Hillyer",
+    "store_id": 1,
+    "rental_count": 8040,
+    "payment_count": 8057,
+    "total_payment_amount": 269255338.8
+  }
+],
+
+
+
+		"insight-store-activity": [
+  {
+    "store_id": 2,
+    "rental_count": 8121,
+    "payment_count": 8121,
+    "total_payment_amount": 33726.770000000004
+  },
+  {
+    "store_id": 1,
+    "rental_count": 7923,
+    "payment_count": 7923,
+    "total_payment_amount": 33679.79
+  }
+],
+
+
+
+		"insight-customer-focus": [
+  {
+    "customer_id": 526,
+    "first_name": "KARL",
+    "last_name": "SEAL",
+    "rental_count": 45,
+    "payment_count": 45,
+    "total_payment_amount": 9969.75,
+    "combined_activity_score": 10059.75
+  },
+  {
+    "customer_id": 148,
+    "first_name": "ELEANOR",
+    "last_name": "HUNT",
+    "rental_count": 46,
+    "payment_count": 46,
+    "total_payment_amount": 9960.84,
+    "combined_activity_score": 10052.84
+  },
+  {
+    "customer_id": 144,
+    "first_name": "CLARA",
+    "last_name": "SHAW",
+    "rental_count": 42,
+    "payment_count": 42,
+    "total_payment_amount": 8214.36,
+    "combined_activity_score": 8298.36
+  },
+  {
+    "customer_id": 137,
+    "first_name": "RHONDA",
+    "last_name": "KENNEDY",
+    "rental_count": 39,
+    "payment_count": 39,
+    "total_payment_amount": 7589.79,
+    "combined_activity_score": 7667.79
+  },
+  {
+    "customer_id": 178,
+    "first_name": "MARION",
+    "last_name": "SNYDER",
+    "rental_count": 39,
+    "payment_count": 39,
+    "total_payment_amount": 7589.79,
+    "combined_activity_score": 7667.79
+  },
+  {
+    "customer_id": 236,
+    "first_name": "MARCIA",
+    "last_name": "DEAN",
+    "rental_count": 42,
+    "payment_count": 42,
+    "total_payment_amount": 7374.360000000001,
+    "combined_activity_score": 7458.360000000001
+  },
+  {
+    "customer_id": 469,
+    "first_name": "WESLEY",
+    "last_name": "BULL",
+    "rental_count": 40,
+    "payment_count": 40,
+    "total_payment_amount": 7104,
+    "combined_activity_score": 7184
+  },
+  {
+    "customer_id": 459,
+    "first_name": "TOMMY",
+    "last_name": "COLLAZO",
+    "rental_count": 38,
+    "payment_count": 38,
+    "total_payment_amount": 7091.56,
+    "combined_activity_score": 7167.56
+  },
+  {
+    "customer_id": 468,
+    "first_name": "TIM",
+    "last_name": "CARY",
+    "rental_count": 39,
+    "payment_count": 39,
+    "total_payment_amount": 6848.79,
+    "combined_activity_score": 6926.79
+  },
+  {
+    "customer_id": 176,
+    "first_name": "JUNE",
+    "last_name": "CARROLL",
+    "rental_count": 37,
+    "payment_count": 37,
+    "total_payment_amount": 6424.31,
+    "combined_activity_score": 6498.31
+  },
+  {
+    "customer_id": 75,
+    "first_name": "TAMMY",
+    "last_name": "SANDERS",
+    "rental_count": 41,
+    "payment_count": 41,
+    "total_payment_amount": 6379.1900000000005,
+    "combined_activity_score": 6461.1900000000005
+  },
+  {
+    "customer_id": 410,
+    "first_name": "CURTIS",
+    "last_name": "IRBY",
+    "rental_count": 38,
+    "payment_count": 38,
+    "total_payment_amount": 6369.56,
+    "combined_activity_score": 6445.56
+  },
+  {
+    "customer_id": 197,
+    "first_name": "SUE",
+    "last_name": "PETERS",
+    "rental_count": 40,
+    "payment_count": 40,
+    "total_payment_amount": 6184,
+    "combined_activity_score": 6264
+  },
+  {
+    "customer_id": 295,
+    "first_name": "DAISY",
+    "last_name": "BATES",
+    "rental_count": 38,
+    "payment_count": 38,
+    "total_payment_amount": 6179.56,
+    "combined_activity_score": 6255.56
+  },
+  {
+    "customer_id": 50,
+    "first_name": "DIANE",
+    "last_name": "COLLINS",
+    "rental_count": 35,
+    "payment_count": 35,
+    "total_payment_amount": 5937.75,
+    "combined_activity_score": 6007.75
+  },
+  {
+    "customer_id": 181,
+    "first_name": "ANA",
+    "last_name": "BRADLEY",
+    "rental_count": 34,
+    "payment_count": 34,
+    "total_payment_amount": 5938.4400000000005,
+    "combined_activity_score": 6006.4400000000005
+  },
+  {
+    "customer_id": 403,
+    "first_name": "MIKE",
+    "last_name": "WAY",
+    "rental_count": 35,
+    "payment_count": 35,
+    "total_payment_amount": 5832.75,
+    "combined_activity_score": 5902.75
+  },
+  {
+    "customer_id": 267,
+    "first_name": "MARGIE",
+    "last_name": "WADE",
+    "rental_count": 36,
+    "payment_count": 36,
+    "total_payment_amount": 5747.04,
+    "combined_activity_score": 5819.04
+  },
+  {
+    "customer_id": 373,
+    "first_name": "LOUIS",
+    "last_name": "LEONE",
+    "rental_count": 35,
+    "payment_count": 35,
+    "total_payment_amount": 5657.75,
+    "combined_activity_score": 5727.75
+  },
+  {
+    "customer_id": 366,
+    "first_name": "BRANDON",
+    "last_name": "HUEY",
+    "rental_count": 37,
+    "payment_count": 37,
+    "total_payment_amount": 5647.31,
+    "combined_activity_score": 5721.31
+  }
+],
+
+
+
+
+	};
+
+document.addEventListener('DOMContentLoaded', () => {
+	for (const template of document.querySelectorAll('template[data-dashboard-element-template]')) {
+		const target = document.getElementById(template.dataset.dashboardElementTemplate);
+		if (target) {
+			target.replaceChildren(template.content.cloneNode(true));
+		}
+	}
+
+	const getData = (key) => window.dashboardData?.[key] ?? [];
+	const firstRow = (key) => {
+		const rows = getData(key);
+		return Array.isArray(rows) ? rows[0] : rows;
+	};
+	const formatNumber = (value, maximumFractionDigits = 0) => {
+		const number = Number(value);
+		return Number.isFinite(number) ? new Intl.NumberFormat(undefined, { maximumFractionDigits }).format(number) : '-';
+	};
+	const formatCurrency = (value, currency = 'USD') => {
+		const number = Number(value);
+		return Number.isFinite(number) ? new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(number) : '-';
+	};
+	const formatPercent = (value, maximumFractionDigits = 1) => {
+		const number = Number(value);
+		return Number.isFinite(number) ? formatNumber(number, maximumFractionDigits) + '%' : '-';
+	};
+	const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({
+		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+	}[char]));
+	const elementScripts = [
+
+
+
+
+		{
+			id: "metric-total-rentals",
+			script: "const rootEl = document.getElementById('metric-total-rentals');\nconst valueEl = document.getElementById('metric-total-rentals-value');\nconst labelEl = document.getElementById('metric-total-rentals-label');\nconst row = firstRow('metric-total-rentals');\nif (!row || valueEl == null) {\n  if (labelEl) labelEl.textContent = '';\n  valueEl.textContent = '—';\n} else {\n  valueEl.textContent = formatNumber(row.total_rentals, 0);\n  if (labelEl) labelEl.textContent = '';\n}",
+		},
+
+
+
+		{
+			id: "metric-total-payments",
+			script: "const rows = getData('metric-total-payments');\nconst row = firstRow('metric-total-payments');\nconst value = row && row.headline_value != null ? row.headline_value : (rows && rows.length ? rows[0].headline_value : null);\nconst valueEl = document.getElementById('metric-total-payments-value');\nconst labelEl = document.getElementById('metric-total-payments-label');\nif (labelEl) {\n  labelEl.textContent = '';\n}\nif (valueEl) {\n  if (value == null) {\n    valueEl.textContent = '';\n  } else {\n    valueEl.textContent = formatNumber(value);\n    valueEl.classList.add('metric-value-number');\n  }\n}",
+		},
+
+
+
+		{
+			id: "metric-rental-revenue",
+			script: "const data = getData('metric-rental-revenue');\nconst row = firstRow('metric-rental-revenue');\nconst value = row ? row.total_payment_amount : null;\nconst el = document.getElementById('metric-rental-revenue-value');\nif (el) {\n  if (typeof value === 'number') {\n    el.textContent = formatCurrency(value);\n  } else if (value != null) {\n    el.textContent = escapeHtml(String(value));\n  } else {\n    el.textContent = '\u00151';\n  }\n}",
+		},
+
+
+
+		{
+			id: "metric-active-customers",
+			script: "const row = firstRow('metric-active-customers');\nconst value = row ? row['active_customer_count'] : null;\nconst elValue = document.getElementById('metric-active-customers-value');\nif (elValue) {\n  if (value === null || value === undefined || value === '') {\n    elValue.textContent = '—';\n  } else {\n    elValue.textContent = formatNumber(value, 0);\n  }\n}",
+		},
+
+
+
+		{
+			id: "metric-stores-count",
+			script: "const rows = getData('metric-stores-count');\nconst row = rows && rows.length ? firstRow('metric-stores-count') : null;\nconst value = row && row.total_stores !== undefined ? row.total_stores : null;\nconst el = document.getElementById('metric-stores-count-value');\nif (el) {\n  el.textContent = value === null ? '—' : formatNumber(value, 0);\n}\nconst labelEl = document.getElementById('metric-stores-count-label');\nif (labelEl) {\n  labelEl.style.display = 'none';\n}",
+		},
+
+
+
+		{
+			id: "chart-activity-trend",
+			script: "const data = getData('chart-activity-trend');\nconst preview = Array.isArray(data) ? data : [];\nif (!preview || preview.length < 2) {\n  const fallback = document.getElementById('chart-activity-trend-value');\n  if (fallback) fallback.textContent = 'Not enough data to render chart.';\n} else {\n  const monthOrder = [];\n  const byMonth = new Map();\n\n  for (let i = 0; i < preview.length; i++) {\n    const r = preview[i];\n    const month = String(r.month);\n    const storeId = r.store_id;\n    if (!byMonth.has(month)) {\n      byMonth.set(month, {});\n      monthOrder.push(month);\n    }\n    byMonth.get(month)[storeId] = {\n      rental_count: r.rental_count,\n      payment_count: r.payment_count,\n      total_payment_amount: r.total_payment_amount\n    };\n  }\n\n  const months = monthOrder.slice(0, 12);\n\n  const storeIds = [];\n  for (let i = 0; i < preview.length; i++) {\n    const sid = preview[i].store_id;\n    let exists = false;\n    for (let j = 0; j < storeIds.length; j++) {\n      if (storeIds[j] === sid) {\n        exists = true;\n        break;\n      }\n    }\n    if (!exists) storeIds.push(sid);\n  }\n\n  const datasets = [];\n  const palette = ['#0d6efd', '#20c997', '#fd7e14', '#6f42c1', '#dc3545', '#198754', '#6610f2', '#d63384'];\n\n  for (let s = 0; s < storeIds.length; s++) {\n    const storeId = storeIds[s];\n    const color = palette[s % palette.length];\n    const rentalData = [];\n    const paymentTotalData = [];\n\n    for (let m = 0; m < months.length; m++) {\n      const month = months[m];\n      const entry = byMonth.get(month) && byMonth.get(month)[storeId];\n      rentalData.push(entry ? Number(entry.rental_count) : 0);\n      paymentTotalData.push(entry ? Number(entry.total_payment_amount) : 0);\n    }\n\n    datasets.push({\n      label: `Store ${storeId} rentals`,\n      data: rentalData,\n      borderColor: color,\n      backgroundColor: color,\n      pointRadius: 2,\n      pointHoverRadius: 4,\n      tension: 0.25,\n      yAxisID: 'y'\n    });\n\n    if (storeIds.length <= 3) {\n      datasets.push({\n        label: `Store ${storeId} total payments`,\n        data: paymentTotalData,\n        borderColor: color,\n        backgroundColor: color,\n        pointRadius: 2,\n        pointHoverRadius: 4,\n        tension: 0.25,\n        yAxisID: 'y2',\n        borderDash: [6, 4]\n      });\n    }\n  }\n\n  const canvas = document.getElementById('chart-activity-trend-canvas');\n  const ctx = canvas.getContext('2d');\n\n  const chart = new Chart(ctx, {\n    type: 'line',\n    data: {\n      labels: months,\n      datasets: datasets\n    },\n    options: {\n      responsive: true,\n      maintainAspectRatio: false,\n      interaction: {\n        mode: 'index',\n        intersect: false\n      },\n      plugins: {\n        legend: {\n          display: true,\n          position: 'top'\n        },\n        tooltip: {\n          callbacks: {\n            label: function(context) {\n              const v = context.parsed.y;\n              const label = context.dataset.label || '';\n              if (context.dataset.yAxisID === 'y2') {\n                return `${label}: ${formatCurrency(v)}`;\n              }\n              return `${label}: ${formatNumber(v, 0)}`;\n            }\n          }\n        }\n      },\n      scales: {\n        x: {\n          ticks: {\n            maxRotation: 0,\n            autoSkip: true\n          },\n          grid: {\n            display: false\n          }\n        },\n        y: {\n          type: 'linear',\n          position: 'left',\n          title: {\n            display: true,\n            text: 'Rentals (count)'\n          },\n          ticks: {\n            callback: function(value) {\n              return formatNumber(value, 0);\n            }\n          }\n        },\n        y2: {\n          type: 'linear',\n          position: 'right',\n          grid: {\n            drawOnChartArea: false\n          },\n          title: {\n            display: storeIds.length <= 3,\n            text: 'Total payment amount'\n          },\n          ticks: {\n            callback: function(value) {\n              return formatCurrency(value);\n            }\n          }\n        }\n      }\n    }\n  });\n}",
+		},
+
+
+
+		{
+			id: "chart-store-category",
+			script: "const rootKey = \"chart-store-category\";\nconst rows = getData(rootKey) || [];\n\nconst sliceRows = rows.slice(0, 12);\n\nconst labels = sliceRows.map(r => `${escapeHtml(r.store_id)} - ${escapeHtml(r.category_name)}`);\nconst rentalCounts = sliceRows.map(r => r.rental_count);\n\nconst data = {\n  labels,\n  datasets: [\n    {\n      label: \"Rentals\",\n      data: rentalCounts,\n      backgroundColor: \"rgba(13, 110, 253, 0.55)\",\n      borderColor: \"rgba(13, 110, 253, 1)\",\n      borderWidth: 1\n    }\n  ]\n};\n\nconst canvas = document.getElementById(\"chart-store-category-canvas\");\nconst ctx = canvas.getContext(\"2d\");\n\nnew Chart(ctx, {\n  type: \"bar\",\n  data,\n  options: {\n    responsive: true,\n    maintainAspectRatio: false,\n    indexAxis: \"y\",\n    plugins: {\n      legend: {\n        display: true\n      },\n      tooltip: {\n        callbacks: {\n          title: (items) => items[0].label,\n          label: (item) => `Rentals: ${formatNumber(item.parsed.x ?? item.raw, 0)}`\n        }\n      }\n    },\n    scales: {\n      x: {\n        beginAtZero: true,\n        ticks: {\n          callback: (value) => formatNumber(value, 0)\n        },\n        title: {\n          display: true,\n          text: \"Rental count\"\n        }\n      },\n      y: {\n        ticks: {\n          autoSkip: false\n        }\n      }\n    }\n  }\n});",
+		},
+
+
+
+		{
+			id: "table-top-customers",
+			script: "const el = document.getElementById('table-top-customers');\nconst tbody = document.getElementById('table-top-customers-table-body');\nconst data = getData('table-top-customers');\nconst first = firstRow('table-top-customers');\nif (!data || !Array.isArray(data)) {\n  if (tbody) {\n    tbody.innerHTML = '<tr><td colspan=\"5\" class=\"text-muted\">No data available.</td></tr>';\n  }\n} else {\n  const rows = data.slice(0, 15);\n  let html = '';\n  for (let i = 0; i < rows.length; i++) {\n    const r = rows[i];\n    const customerName = escapeHtml(r.customer_name ?? '');\n    const storeId = escapeHtml(String(r.store_id ?? ''));\n    const rentalCount = formatNumber(r.rental_count ?? 0, 0);\n    const paymentCount = formatNumber(r.payment_count ?? 0, 0);\n    const totalPaymentAmount = formatCurrency(r.total_payment_amount ?? 0);\n    const customerCell = customerName ? customerName : 'Customer ' + escapeHtml(String(r.customer_id ?? ''));\n    html += '<tr>' +\n      '<td>' + customerCell + '</td>' +\n      '<td class=\"text-muted\">Store ' + storeId + '</td>' +\n      '<td>' + rentalCount + '</td>' +\n      '<td>' + paymentCount + '</td>' +\n      '<td class=\"text-end fw-semibold\">' + totalPaymentAmount + '</td>' +\n    '</tr>';\n  }\n  tbody.innerHTML = html;\n}",
+		},
+
+
+
+		{
+			id: "table-staff-store-summary",
+			script: "const key = \"table-staff-store-summary\";\nconst rows = getData(key);\nconst tbody = document.getElementById(\"table-staff-store-summary-table-body\");\ntbody.innerHTML = \"\";\n\nif (rows && rows.length) {\n  const slice = rows.slice(0, 12);\n  for (const r of slice) {\n    const staffName = escapeHtml(String(r.first_name || \"\") + \" \" + String(r.last_name || \"\").trim());\n    const storeId = escapeHtml(String(r.store_id));\n    const rentalCount = formatNumber(r.rental_count, 0);\n    const paymentCount = formatNumber(r.payment_count, 0);\n    const totalPayment = formatCurrency(r.total_payment_amount);\n\n    const tr = document.createElement(\"tr\");\n\n    const tdStaff = document.createElement(\"td\");\n    tdStaff.textContent = staffName;\n\n    const tdStore = document.createElement(\"td\");\n    tdStore.textContent = storeId;\n\n    const tdRentals = document.createElement(\"td\");\n    tdRentals.textContent = rentalCount;\n\n    const tdPayments = document.createElement(\"td\");\n    tdPayments.textContent = paymentCount;\n\n    const tdTotal = document.createElement(\"td\");\n    tdTotal.className = \"text-end\";\n    tdTotal.textContent = totalPayment;\n\n    tr.appendChild(tdStaff);\n    tr.appendChild(tdStore);\n    tr.appendChild(tdRentals);\n    tr.appendChild(tdPayments);\n    tr.appendChild(tdTotal);\n\n    tbody.appendChild(tr);\n  }\n}",
+		},
+
+
+
+
+
+
+
+
+	];
+	for (const elementScript of elementScripts) {
+		try {
+			new Function(
+				'getData',
+				'firstRow',
+				'formatNumber',
+				'formatCurrency',
+				'formatPercent',
+				'escapeHtml',
+				elementScript.script
+			)(getData, firstRow, formatNumber, formatCurrency, formatPercent, escapeHtml);
+		} catch (error) {
+			console.error('Dashboard element failed:', elementScript.id, error);
+		}
+	}
+});
+	</script>
+</body>
+
+</html>
