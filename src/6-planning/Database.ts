@@ -3,9 +3,11 @@ import { existsSync, mkdirSync } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { unzipSync } from 'fflate';
 
 const BASE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SQLITE_HEADER = Buffer.from('SQLite format 3\0', 'ascii');
+const ZIP_LOCAL_FILE_HEADER = 0x04034b50;
 
 interface ColumnInfo {
 	name: string;
@@ -75,8 +77,10 @@ export class Database {
 					`Failed to download DB from ${this.databaseUrl}. HTTP ${response.status} ${response.statusText}`
 				);
 			}
-			const arrayBuffer = await response.arrayBuffer();
-			const buffer = Buffer.from(arrayBuffer);
+			const downloadedBuffer = await readResponseBuffer(response);
+			const buffer = isZipArchive(downloadedBuffer)
+				? extractDatabaseFileFromZip(downloadedBuffer)
+				: downloadedBuffer;
 			if (isSqliteDatabase(buffer)) {
 				await fs.writeFile(dbPath, buffer);
 				console.log(`Saved DB to ${dbPath}`);
@@ -217,6 +221,53 @@ export class Database {
 
 function isSqliteDatabase(buffer: Buffer): boolean {
 	return buffer.subarray(0, SQLITE_HEADER.length).equals(SQLITE_HEADER);
+}
+
+function isZipArchive(buffer: Buffer): boolean {
+	return buffer.length >= 4 && buffer.readUInt32LE(0) == ZIP_LOCAL_FILE_HEADER;
+}
+
+async function readResponseBuffer(response: Response): Promise<Buffer> {
+	const reader = response.body?.getReader();
+	if (!reader) return Buffer.from(await response.arrayBuffer());
+	const contentLength = Number(response.headers.get('content-length') ?? 0);
+	const chunks: Buffer[] = [];
+	let receivedBytes = 0;
+	let nextProgressLog = 25 * 1024 * 1024;
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		const chunk = Buffer.from(value);
+		chunks.push(chunk);
+		receivedBytes += chunk.length;
+		if (receivedBytes >= nextProgressLog) {
+			console.log(`Downloaded ${formatMegabytes(receivedBytes)}${contentLength ? ` of ${formatMegabytes(contentLength)}` : ''}...`);
+			nextProgressLog += 25 * 1024 * 1024;
+		}
+	}
+	return Buffer.concat(chunks, receivedBytes);
+}
+
+function formatMegabytes(bytes: number): string {
+	return `${Math.round(bytes / 1024 / 1024)} MB`;
+}
+
+function extractDatabaseFileFromZip(buffer: Buffer): Buffer {
+	console.log('Extracting downloaded ZIP...');
+	const files = unzipSync(buffer, {
+		filter: file => /\.(db|sqlite|sqlite3|sql)$/i.test(file.name),
+	});
+	const fileName = Object.keys(files).find(name => /\.(db|sqlite|sqlite3)$/i.test(name))
+		?? Object.keys(files).find(name => /\.sql$/i.test(name));
+	if (!fileName) {
+		throw new Error('Downloaded ZIP did not contain a .db, .sqlite, .sqlite3, or .sql file.');
+	}
+	const extracted = Buffer.from(files[fileName]);
+	if (!isSqliteDatabase(extracted) && !looksLikeSqlScript(extracted)) {
+		throw new Error(`ZIP entry "${fileName}" is not a SQLite database or SQL script.`);
+	}
+	console.log(`Extracted ${fileName} from downloaded ZIP.`);
+	return extracted;
 }
 
 function looksLikeSqlScript(buffer: Buffer): boolean {

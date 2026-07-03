@@ -1,5 +1,5 @@
 {
-	"activeScenario": "sakila_rental_activity",
+	"activeScenario": "itis_taxonomy_coverage",
 	"scenarios": {
 		"chinook_sales_improvement": {
 			"name": "Chinook sales improvement",
@@ -39,6 +39,22 @@
 			"datasetName": "sakila",
 			"datasetDescription": "Sakila SQLite sample database modeling a DVD rental store, including customers, rentals, payments, inventory, films, actors, categories, stores, staff, and addresses.",
 			"databaseUrl": "https://raw.githubusercontent.com/bradleygrant/sakila-sqlite3/main/sakila_master.db",
+			"port": 3004
+		},
+		"itis_taxonomy_coverage": {
+			"name": "ITIS taxonomy coverage",
+			"userRequest": "Explore taxonomic coverage across kingdoms, ranks, major groups, and hierarchy depth to understand what kinds of organisms are represented.",
+			"datasetName": "itis",
+			"datasetDescription": "ITIS SQLite taxonomy database containing taxonomic serial numbers, scientific names, common names, hierarchy records, ranks, synonym relationships, authorities, and source metadata across animals, plants, fungi, and microbes.",
+			"databaseUrl": "https://www.itis.gov/downloads/itisSqlite.zip",
+			"port": 3004
+		},
+		"itis_names_and_synonyms": {
+			"name": "ITIS names and synonyms",
+			"userRequest": "Analyze scientific names, common names, accepted-name relationships, synonyms, authorities, and naming patterns across the taxonomy.",
+			"datasetName": "itis",
+			"datasetDescription": "ITIS SQLite taxonomy database containing taxonomic serial numbers, scientific names, common names, hierarchy records, ranks, synonym relationships, authorities, and source metadata across animals, plants, fungi, and microbes.",
+			"databaseUrl": "https://www.itis.gov/downloads/itisSqlite.zip",
 			"port": 3004
 		},
 		"lahman_team_eras": {
