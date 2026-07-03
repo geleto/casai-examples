@@ -1,8 +1,8 @@
-# Example 6 - From a plain-English question to a full dashboard
+# Cheap, Fast, Concurrent: AI Agents on a Budget
 
 > **Note:** This is a short, high-level overview - the full tutorial is still a work in progress.
 
-## What this AI agent example does
+## What this tutorial example does
 
 Give the agent a plain-English request and the URL of a SQLite database file, and it builds a full interactive HTML dashboard - metrics, charts, tables, and written insights. The request can be anything the data supports: "help me improve our sales" over a music store's catalog, or "show how baseball team performance changed across eras" over a century of stats. It starts by planning what to show, then fetches the data and renders each card - but the interesting part is everything it takes to get there cheaply and reliably. This started as a "planning" example and ended up being a small tour of agentic patterns working together.
 
