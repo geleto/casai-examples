@@ -1,36 +1,25 @@
-You are repairing a SQLite SELECT query for a dashboard element.
+You are repairing a SQLite SELECT for a dashboard element. Return ONLY one corrected, valid SQLite SELECT that best satisfies the data request — no explanation, comments, or backticks.
 
-Your task:
-- Write a revised single, syntactically valid SQLite SELECT query that best satisfies the data request.
-- Preserve the intent of the data request; do not invent tables, columns, filters, or values that are not supported by the schema summary.
-- If the previous query failed, directly fix the reported problem.
-- If the previous query returned zero rows, broaden or correct joins, filters, date logic, grouping, or ordering where reasonable.
-- If the previous query used a table shown with 0 rows in the schema summary, switch to a relevant non-empty table if one exists.
-- If the failed query uses a complex shape such as correlated subqueries, medians, percentiles, ranks, or quartiles, you may simplify the task by replacing optional advanced statistics with direct aggregate evidence such as counts, sums, averages, minimums, or maximums.
-- If one optional statistic is causing repeated failure, omit or replace that statistic rather than failing the whole element.
-- Do not fix alias or missing-column errors by only renaming aliases when the query structure itself may be the problem.
-- Only use tables and columns that appear in the schema summary.
-- Use the exact table and column names from the schema summary.
-- Do not repair a missing column by substituting an unrelated column, constant value, or alias that still claims to measure the missing field.
-- Use SQLite syntax only; avoid functions from other databases.
-- Do not use `PERCENTILE_CONT`, `PERCENTILE_DISC`, or `WITHIN GROUP`; they are not portable SQLite syntax.
-- For value tiers or quartiles, use SQLite window functions such as `NTILE(4) OVER (ORDER BY metric)` or `ROW_NUMBER()` plus counts.
-- Do not use window functions in `WHERE`, `GROUP BY`, or `HAVING`. Compute window values in a CTE/subquery, then filter them in an outer `SELECT`.
-- When using `GROUP BY`, every selected column must either be grouped or aggregated.
-- Use simple aliases with letters, numbers, and underscores only; do not use spaces or punctuation in aliases.
-- With `UNION` or `UNION ALL`, order only by output columns/aliases, or wrap the union in a subquery.
-- Do not put `ORDER BY` or `LIMIT` inside individual `UNION` branches unless that branch is wrapped as a subquery.
-- Prefer reasonably small result sets suitable for previews (use LIMIT when appropriate).
-- If the dashboard element type is `metric`, return exactly one row for one headline value. Use one aggregate row, or `ORDER BY` the main metric with `LIMIT 1` for a top/best category plus its numeric measure. Do not return grouped category comparisons.
-- If the dashboard element type is `chart` and the request compares values by a group such as era, decade, region, country, genre, artist, team, publisher, or language, return one row per displayed group. Use `GROUP BY` on the displayed group label or an equivalent subquery/CTE, and aggregate every metric column for that group.
-- Do not return raw rows with repeated chart labels for grouped chart requests; repeated labels can collapse into too few plotted points.
-- If the dashboard element type is `chart` and the result is grouped by named categories such as countries, genres, artists, customers, teams, publishers, or languages, order by the main metric and use `LIMIT 12`.
-- If the dashboard element type is `table`, use `LIMIT 20` unless the request clearly needs fewer rows.
-- If the dashboard element type is `insight`, return compact aggregate or ranked evidence, not broad raw rows.
-- For charts and tables, preserve the most natural ordering for the visualization, such as chronological order for trends or descending metric order for rankings.
-- Do not explain the query.
-- Do not surround it with backticks or any other formatting.
-- Do not include comments.
+Repair:
+- Preserve the intent of the data request; do not invent tables, columns, filters, or values absent from the schema summary.
+- If the previous query errored, fix the reported problem directly. If it returned zero rows, broaden or correct joins, filters, date logic, grouping, or ordering. If it used a table shown with 0 rows, switch to a relevant non-empty table.
+- Do not fix a missing-column or alias error by only renaming aliases, or by substituting an unrelated column/constant that still claims to measure the missing field — the query shape may be the real problem.
+- If a complex shape (correlated subqueries, medians, percentiles, ranks, quartiles) keeps failing, replace the optional statistic with direct aggregate evidence (counts, sums, averages, min, max) rather than failing the whole element.
+
+Rules:
+- Use only tables and columns from the schema summary, with their exact names. SQLite syntax only.
+- Do not use `PERCENTILE_CONT`, `PERCENTILE_DISC`, or `WITHIN GROUP`. For value tiers or quartiles use `NTILE(4) OVER (ORDER BY metric)` or `ROW_NUMBER()` plus counts.
+- Do not use window functions in `WHERE`, `GROUP BY`, or `HAVING`; compute them in a CTE/subquery, then filter in an outer `SELECT`.
+- With `GROUP BY`, every selected column must be grouped or aggregated. Use simple aliases (letters, numbers, underscores only).
+- With `UNION`/`UNION ALL`, order only by output columns, or wrap the union in a subquery; do not put `ORDER BY`/`LIMIT` inside a branch unless it is wrapped.
+- Prefer small result sets; use `LIMIT` where appropriate.
+
+By element type:
+- `metric`: return exactly one row with one headline value; no grouped comparisons.
+- `chart`: one row per displayed group via `GROUP BY`, aggregating every metric; for named categories `ORDER BY` the main metric and `LIMIT 12`.
+- `table`: `LIMIT 20` unless clearly fewer are needed.
+- `insight`: compact aggregate or ranked evidence, not broad raw rows.
+- For charts and tables, keep the natural order (chronological for trends, descending metric for rankings).
 
 You are given:
 - Dataset description:
