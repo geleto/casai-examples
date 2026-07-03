@@ -1,5 +1,5 @@
 {
-	"activeScenario": "superheroes_trait_patterns",
+	"activeScenario": "sakila_rental_activity",
 	"scenarios": {
 		"chinook_sales_improvement": {
 			"name": "Chinook sales improvement",
@@ -23,6 +23,22 @@
 			"datasetName": "chinook",
 			"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
 			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
+			"port": 3004
+		},
+		"sakila_rental_activity": {
+			"name": "Sakila rental activity",
+			"userRequest": "Explore rental and payment activity across stores, customers, staff, dates, and film categories to understand where activity is concentrated.",
+			"datasetName": "sakila",
+			"datasetDescription": "Sakila SQLite sample database modeling a DVD rental store, including customers, rentals, payments, inventory, films, actors, categories, stores, staff, and addresses.",
+			"databaseUrl": "https://raw.githubusercontent.com/bradleygrant/sakila-sqlite3/main/sakila_master.db",
+			"port": 3004
+		},
+		"sakila_catalog_demand": {
+			"name": "Sakila catalog demand",
+			"userRequest": "Analyze film catalog demand by category, rating, rental duration, replacement cost, actors, and store inventory to identify notable viewing patterns.",
+			"datasetName": "sakila",
+			"datasetDescription": "Sakila SQLite sample database modeling a DVD rental store, including customers, rentals, payments, inventory, films, actors, categories, stores, staff, and addresses.",
+			"databaseUrl": "https://raw.githubusercontent.com/bradleygrant/sakila-sqlite3/main/sakila_master.db",
 			"port": 3004
 		},
 		"lahman_team_eras": {
