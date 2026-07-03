@@ -47,7 +47,6 @@ export namespace types {
 		datasetName: string;
 		datasetDescription: string;
 		databaseUrl: string;
-		port: number;
 	}
 
 	export interface PlanningInputFile {

@@ -1,109 +1,89 @@
 {
-	"activeScenario": "chinook_sales_improvement",
+	"activeScenario": "sakila_rental_activity",
 	"scenarios": {
-		"chinook_sales_improvement": {
-			"name": "Chinook sales improvement",
-			"userRequest": "I need to know how to improve our sales",
-			"datasetName": "chinook",
-			"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
-			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
-			"port": 3004
-		},
-		"chinook_customer_revenue": {
-			"name": "Chinook customer revenue",
-			"userRequest": "Show which customers, countries, and purchasing patterns drive the most revenue, and identify where we should focus account management.",
-			"datasetName": "chinook",
-			"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
-			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
-			"port": 3004
-		},
-		"chinook_catalog_performance": {
-			"name": "Chinook catalog performance",
-			"userRequest": "Analyze our catalog performance by genre, artist, album, and track so we can prioritize content and promotion decisions.",
-			"datasetName": "chinook",
-			"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
-			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql",
-			"port": 3004
-		},
 		"sakila_rental_activity": {
 			"name": "Sakila rental activity",
 			"userRequest": "Explore rental and payment activity across stores, customers, staff, dates, and film categories to understand where activity is concentrated.",
 			"datasetName": "sakila",
 			"datasetDescription": "Sakila SQLite sample database modeling a DVD rental store, including customers, rentals, payments, inventory, films, actors, categories, stores, staff, and addresses.",
-			"databaseUrl": "https://raw.githubusercontent.com/bradleygrant/sakila-sqlite3/main/sakila_master.db",
-			"port": 3004
+			"databaseUrl": "https://raw.githubusercontent.com/bradleygrant/sakila-sqlite3/main/sakila_master.db"
 		},
 		"sakila_catalog_demand": {
 			"name": "Sakila catalog demand",
 			"userRequest": "Analyze film catalog demand by category, rating, rental duration, replacement cost, actors, and store inventory to identify notable viewing patterns.",
 			"datasetName": "sakila",
 			"datasetDescription": "Sakila SQLite sample database modeling a DVD rental store, including customers, rentals, payments, inventory, films, actors, categories, stores, staff, and addresses.",
-			"databaseUrl": "https://raw.githubusercontent.com/bradleygrant/sakila-sqlite3/main/sakila_master.db",
-			"port": 3004
+			"databaseUrl": "https://raw.githubusercontent.com/bradleygrant/sakila-sqlite3/main/sakila_master.db"
 		},
 		"itis_taxonomy_coverage": {
 			"name": "ITIS taxonomy coverage",
 			"userRequest": "Explore taxonomic coverage across kingdoms, ranks, major groups, and hierarchy depth to understand what kinds of organisms are represented.",
 			"datasetName": "itis",
 			"datasetDescription": "ITIS SQLite taxonomy database containing taxonomic serial numbers, scientific names, common names, hierarchy records, ranks, synonym relationships, authorities, and source metadata across animals, plants, fungi, and microbes.",
-			"databaseUrl": "https://www.itis.gov/downloads/itisSqlite.zip",
-			"port": 3004
+			"databaseUrl": "https://www.itis.gov/downloads/itisSqlite.zip"
 		},
 		"itis_names_and_synonyms": {
 			"name": "ITIS names and synonyms",
 			"userRequest": "Analyze scientific names, common names, accepted-name relationships, synonyms, authorities, and naming patterns across the taxonomy.",
 			"datasetName": "itis",
 			"datasetDescription": "ITIS SQLite taxonomy database containing taxonomic serial numbers, scientific names, common names, hierarchy records, ranks, synonym relationships, authorities, and source metadata across animals, plants, fungi, and microbes.",
-			"databaseUrl": "https://www.itis.gov/downloads/itisSqlite.zip",
-			"port": 3004
+			"databaseUrl": "https://www.itis.gov/downloads/itisSqlite.zip"
 		},
 		"lahman_team_eras": {
 			"name": "Lahman team eras",
 			"userRequest": "Explore how baseball team performance changed across eras, including wins, scoring, pitching, and standout seasons.",
 			"datasetName": "lahman",
 			"datasetDescription": "Lahman baseball archive SQLite database containing historical baseball statistics from 1871 through 2022, including teams, players, batting, pitching, fielding, awards, schools, salaries, and postseason records.",
-			"databaseUrl": "https://github.com/jknecht/baseball-archive-sqlite/releases/download/2022/lahman_1871-2022.sqlite",
-			"port": 3004
+			"databaseUrl": "https://github.com/jknecht/baseball-archive-sqlite/releases/download/2022/lahman_1871-2022.sqlite"
 		},
 		"lahman_player_careers": {
 			"name": "Lahman player careers",
 			"userRequest": "Analyze notable baseball player career patterns, including longevity, batting production, pitching records, awards, and Hall of Fame context.",
 			"datasetName": "lahman",
 			"datasetDescription": "Lahman baseball archive SQLite database containing historical baseball statistics from 1871 through 2022, including teams, players, batting, pitching, fielding, awards, schools, salaries, and postseason records.",
-			"databaseUrl": "https://github.com/jknecht/baseball-archive-sqlite/releases/download/2022/lahman_1871-2022.sqlite",
-			"port": 3004
+			"databaseUrl": "https://github.com/jknecht/baseball-archive-sqlite/releases/download/2022/lahman_1871-2022.sqlite"
 		},
 		"countries_global_profile": {
 			"name": "Countries global profile",
 			"userRequest": "Explore how countries differ across regions and subregions, including population, area, currencies, languages, timezones, and coordinates.",
 			"datasetName": "countries",
 			"datasetDescription": "Countries SQLite database with country-level geographic and reference data, including regions, subregions, capitals, currencies, languages, timezones, coordinates, phone codes, population, area, and related identifiers.",
-			"databaseUrl": "https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/sqlite/countries.sqlite3",
-			"port": 3004
+			"databaseUrl": "https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/sqlite/countries.sqlite3"
 		},
 		"countries_timezones_languages": {
 			"name": "Countries timezones and languages",
 			"userRequest": "Analyze patterns in country languages, currencies, timezones, capitals, and regional geography to highlight unusual or diverse places.",
 			"datasetName": "countries",
 			"datasetDescription": "Countries SQLite database with country-level geographic and reference data, including regions, subregions, capitals, currencies, languages, timezones, coordinates, phone codes, population, area, and related identifiers.",
-			"databaseUrl": "https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/sqlite/countries.sqlite3",
-			"port": 3004
+			"databaseUrl": "https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/sqlite/countries.sqlite3"
 		},
 		"superheroes_trait_patterns": {
 			"name": "Superheroes trait patterns",
 			"userRequest": "Explore superhero trait patterns across eye color, hair color, appearance counts, first appearance timing, and character-name identity details.",
 			"datasetName": "superheroes",
 			"datasetDescription": "Superheroes sample SQLite database containing character names, eye color, hair color, appearance counts, first appearance text, and first appearance year.",
-			"databaseUrl": "https://raw.githubusercontent.com/codecrafters-io/sample-sqlite-databases/master/superheroes.db",
-			"port": 3004
+			"databaseUrl": "https://raw.githubusercontent.com/codecrafters-io/sample-sqlite-databases/master/superheroes.db"
 		},
 		"superheroes_appearance_history": {
 			"name": "Superheroes appearance history",
 			"userRequest": "Analyze when superheroes first appeared and how appearance counts vary by decade, eye color, hair color, and name patterns.",
 			"datasetName": "superheroes",
 			"datasetDescription": "Superheroes sample SQLite database containing character names, eye color, hair color, appearance counts, first appearance text, and first appearance year.",
-			"databaseUrl": "https://raw.githubusercontent.com/codecrafters-io/sample-sqlite-databases/master/superheroes.db",
-			"port": 3004
+			"databaseUrl": "https://raw.githubusercontent.com/codecrafters-io/sample-sqlite-databases/master/superheroes.db"
+		},
+		"chinook_sales_improvement": {
+			"name": "Chinook sales improvement",
+			"userRequest": "I need to know how to improve our sales",
+			"datasetName": "chinook",
+			"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
+			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql"
+		},
+		"chinook_catalog_performance": {
+			"name": "Chinook catalog performance",
+			"userRequest": "Analyze our catalog performance by genre, artist, album, and track so we can prioritize content and promotion decisions.",
+			"datasetName": "chinook",
+			"datasetDescription": "Chinook music store sample database containing customers, invoices, invoice line items, artists, albums, tracks, genres, and related reference tables.",
+			"databaseUrl": "https://github.com/lerocha/chinook-database/releases/download/v1.4.5/Chinook_Sqlite.sql"
 		}
 	}
 }

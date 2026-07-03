@@ -1,24 +1,35 @@
 /**
- * PLANNING PATTERN EXAMPLE: DASHBOARD GENERATOR
+ * EXAMPLE 6 - FROM A PLAIN-ENGLISH QUESTION TO A FULL DASHBOARD
  *
- * Demonstrates an AI agent that creates a data dashboard by first planning
- * the layout and data requirements, then executing that plan.
+ * Give the agent a plain-English request ("help me improve our sales") and a
+ * SQLite database, and it builds a full interactive HTML dashboard - metrics,
+ * charts, tables, and written insights. It plans what to show, then executes
+ * that plan card by card. The job is split into small steps, each handed to the
+ * cheapest model that can do it, and independent steps run concurrently - the
+ * whole dashboard is roughly 50k tokens, 2-3 cents, and about 15 seconds.
  *
- * HOW IT WORKS:
- * 1. Generate a schema summary by inspecting the SQLite database
- * 2. Run three planner agents in parallel for metrics, visuals, and insights
- * 3. Each planned element is processed as soon as its planner section is ready
- * 4. For each data-backed element, generate and execute SQL to fetch the needed data
- * 5. Insight elements are converted into concise data-backed HTML
- * 6. Each element is rendered as an independent HTML/JS fragment
- * 7. A deterministic composer arranges the fragments and adds shared helpers/data
+ * STEPS (see orchestrator.cas for the flow):
+ * 1. Summarize the schema (no AI) - inspect the SQLite DB into a compact summary
+ *    that grounds every prompt
+ * 2. Plan the layout - three planners run in parallel (header+metrics,
+ *    charts+tables, insights+text) and stream cards as they decide them
+ * 3. Process each card as it streams - for a data card: narrow the schema to the
+ *    tables it needs, generate and run SQL, repair a failed/empty query
+ *    (escalate the model, then widen the schema), and for insight cards write the
+ *    takeaway; every card is then rendered into an HTML/JS fragment
+ * 4. Compose the page (no AI) - deterministic TypeScript arranges the fragments
+ *    and adds shared helpers/data
  *
- * KEY CONCEPTS:
- * - Planning Pattern: Break complex tasks into structured steps
- * - Structured Output: Use Zod schemas to enforce plan and render formats
- * - Tool Use: Dynamic SQL generation and database querying
- * - Concurrency: Element data fetching and rendering run in parallel
- * - Composition: Small generated fragments are assembled by simple TypeScript
+ * KEY IDEAS:
+ * - Concurrent by default: Cascada runs independent planners, queries, and
+ *   renders at the same time (~6-7 prompts in flight) with no async plumbing
+ * - Cheap-first models: a cheap model drafts SQL and renders HTML; a stronger
+ *   model only plans, repairs SQL, and writes insights
+ * - Tool-style execution: the LLM writes the SQL, the database runs it
+ * - Repair loop + progressive fallback: retry failed/empty queries, then degrade
+ *   gracefully with an error note instead of breaking the page
+ * - Structured output: Zod schemas keep planned and rendered cards typed
+ * - Orchestration: the whole flow is one small Cascada script (orchestrator.cas)
  */
 
 import { spawn } from 'child_process';
@@ -41,6 +52,7 @@ if (!input) {
 const BASE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_HTML = path.join(BASE_DIR, 'dashboard.html');
 const templateLoader = new FileSystemLoader(fileURLToPath(new URL('./templates', import.meta.url)));
+const scriptLoader = new FileSystemLoader(BASE_DIR);
 
 function openInBrowser(url: string): void {
 	const command = process.platform === 'win32'
@@ -170,7 +182,8 @@ const schemaSummaryTemplate = create.Template.loadsTemplate({
 // ---------------------------------------------------------------------------
 // Dashboard processor - plans sections in parallel, fetches data, and renders cards.
 // ---------------------------------------------------------------------------
-const dashboardProcessor = create.Script({
+const dashboardProcessor = create.Script.loadsScript({
+	loader: scriptLoader,
 	context: {
 		headerMetricPlanner,
 		visualPlanner,
@@ -201,82 +214,7 @@ const dashboardProcessor = create.Script({
 		userRequest: input.userRequest,
 	},
 	schema: schemas.processedDashboard,
-	script: `
-		function processElement(element)
-			element.id = normalizeElementId(element.type, element.id)
-			var rows = []
-			if element.usesData and element.dataRequest
-				var elementSchemaSummary = schemaSummaryTemplate(schemaMetadataForTables(element.requiredTables))
-				var sql = sqlFromRequestGenerator({
-					datasetDescription: datasetDescription,
-					schemaSummary: elementSchemaSummary,
-					elementType: element.type,
-					dataRequest: element.dataRequest
-				}).text
-				var queryResult = database.tryExecuteSql(sql)
-				var repairAttempts = 0
-				while repairAttempts < 2 and (queryResult.ok == false or queryResult.rows.length == 0)
-					repairAttempts = repairAttempts + 1
-					var repairSchemaSummary = schemaSummary if repairAttempts == 2 else elementSchemaSummary
-					sql = sqlRepairGenerator({
-						datasetDescription: datasetDescription,
-						schemaSummary: repairSchemaSummary,
-						elementType: element.type,
-						dataRequest: element.dataRequest,
-						previousSql: sql,
-						failureReason: queryResult.error if queryResult.ok == false else "The query returned zero rows.",
-						repairAttempt: repairAttempts
-					}).text
-					queryResult = database.tryExecuteSql(sql)
-				endwhile
-				rows = queryResult.rows
-				element.previewJson = generatePreviewJson(rows)
-				if queryResult.ok == false or rows.length == 0
-					element.queryError = queryResult.error if queryResult.ok == false else "The query returned zero rows."
-					return element
-				endif
-				if element.type == "insight"
-					element.contentHtml = textInsightGenerator({
-						datasetName: datasetName,
-						datasetDescription: datasetDescription,
-						userRequest: userRequest,
-						title: element.title,
-						description: element.description,
-						dataRequest: element.dataRequest,
-						jsonExcerpt: generatePreviewJson(rows, 25)
-					}).text
-				endif
-			endif
-			var renderedElement = elementRenderer({
-				elementJson: toJson(element)
-			}).object
-			// Build dashboard fields after rendering so the renderer prompt is not filled with complete data.
-			element.html = renderedElement.html
-			element.script = renderedElement.script.trim()
-			if element.usesData
-				element.dataJson = toJson(element.id) ~ ": " ~ toJson(rows)
-			endif
-			return element
-		endfunction
-
-		var plannerInput = {
-			datasetName: datasetName,
-			datasetDescription: datasetDescription,
-			userRequest: userRequest,
-			schemaSummary: schemaSummary
-		}
-
-		var headerMetrics = headerMetricPlanner(plannerInput).elementStream
-		var chartsTables = visualPlanner(plannerInput).elementStream
-		var insightsText = insightTextPlanner(plannerInput).elementStream
-
-		data processedElements = []
-		for section in [headerMetrics, chartsTables, insightsText]
-			for element in section
-				processedElements.push(processElement(element))
-			endfor
-		endfor
-		return processedElements.snapshot()`
+	script: 'orchestrator.cas'
 });
 
 console.log('PLANNING PATTERN EXAMPLE\nDemonstrates an AI agent that creates a data dashboard by first planning the layout and data requirements, then executing that plan.\n');

@@ -1,0 +1,82 @@
+// Turn one planned card into a finished, rendered card.
+function processElement(element)
+	element.id = normalizeElementId(element.type, element.id)
+	var rows = []
+	if element.usesData and element.dataRequest
+		// Narrow the schema: scope the summary to just this card's tables
+		var elementSchemaSummary = schemaSummaryTemplate(schemaMetadataForTables(element.requiredTables))
+		// Fetch the data: the LLM drafts the SQL, the database runs it
+		var sql = sqlFromRequestGenerator({
+			datasetDescription: datasetDescription,
+			schemaSummary: elementSchemaSummary,
+			elementType: element.type,
+			dataRequest: element.dataRequest
+		}).text
+		var queryResult = database.tryExecuteSql(sql)
+		var repairAttempts = 0
+		// Repair and fall back: retry a failed/empty query, escalating the model then widening the schema
+		while repairAttempts < 2 and (queryResult.ok == false or queryResult.rows.length == 0)
+			repairAttempts = repairAttempts + 1
+			sql = sqlRepairGenerator({
+				datasetDescription: datasetDescription,
+				schemaSummary: schemaSummary if repairAttempts == 2 else elementSchemaSummary,
+				elementType: element.type,
+				dataRequest: element.dataRequest,
+				previousSql: sql,
+				failureReason: queryResult.error if queryResult.ok == false else "The query returned zero rows.",
+				repairAttempt: repairAttempts
+			}).text
+			queryResult = database.tryExecuteSql(sql)
+		endwhile
+		rows = queryResult.rows
+		element.previewJson = generatePreviewJson(rows)
+		// Give up gracefully: record the error and skip straight to render
+		if queryResult.ok == false or rows.length == 0
+			element.queryError = queryResult.error if queryResult.ok == false else "The query returned zero rows."
+			return element
+		endif
+		// Write the insight: turn the rows into short HTML takeaways (insight cards only)
+		if element.type == "insight"
+			element.contentHtml = textInsightGenerator({
+				datasetName: datasetName,
+				datasetDescription: datasetDescription,
+				userRequest: userRequest,
+				title: element.title,
+				description: element.description,
+				dataRequest: element.dataRequest,
+				jsonExcerpt: generatePreviewJson(rows, 25)
+			}).text
+		endif
+	endif
+	// Render the card: the LLM emits the HTML/JS fragment (runs for every card)
+	var renderedElement = elementRenderer({
+		elementJson: toJson(element)
+	}).object
+	// Attach the rendered fragment and the data the final page will render.
+	element.html = renderedElement.html
+	element.script = renderedElement.script.trim()
+	if element.usesData
+		element.dataJson = toJson(element.id) ~ ": " ~ toJson(rows)
+	endif
+	return element
+endfunction
+
+var plannerInput = {
+	datasetName: datasetName,
+	datasetDescription: datasetDescription,
+	userRequest: userRequest,
+	schemaSummary: schemaSummary
+}
+// Plan the layout: three planners run in parallel and stream cards as they decide them
+var headerMetrics = headerMetricPlanner(plannerInput).elementStream
+var chartsTables = visualPlanner(plannerInput).elementStream
+var insightsText = insightTextPlanner(plannerInput).elementStream
+
+// Process each card as it streams: narrow, fetch, repair, and render each one the moment it arrives
+data processedElements = []
+for section in [headerMetrics, chartsTables, insightsText]
+	for element in section
+		processedElements.push(processElement(element))
+	endfor
+endfor
+return processedElements.snapshot()
