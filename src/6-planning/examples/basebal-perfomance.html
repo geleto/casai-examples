@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<title>Baseball Team Performance Across Eras</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css" rel="stylesheet" />
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+	<style>
+		.dashboard-container {
+			max-width: 1480px;
+		}
+		.dashboard-element, .dashboard-element > .card, .dashboard-element .card-body {
+			min-width: 0;
+		}
+		.dashboard-element {
+			display: flex;
+			align-items: stretch;
+			flex-direction: column;
+		}
+		.dashboard-element > * {
+			flex: 1 1 auto;
+			min-width: 0;
+			width: 100%;
+			height: 100%;
+		}
+		.dashboard-element .card > :not(.card-body) {
+			margin: 0 var(--bs-card-spacer-x) var(--bs-card-spacer-y);
+		}
+		.dashboard-element-table .card-body {
+			display: flex;
+			flex-direction: column;
+		}
+		.dashboard-element-table .table-responsive {
+			max-height: 360px;
+			overflow: auto;
+		}
+		.dashboard-element-metric .metric-value-number {
+			display: block;
+			margin-top: 0.75rem;
+			font-size: 2.5rem !important;
+			font-weight: 700 !important;
+			line-height: 1.1;
+		}
+		.dashboard-element-header + .dashboard-element-metric .metric-value-number {
+			font-size: 3rem !important;
+		}
+		.dashboard-element-metric [id$="-label"] {
+			margin-top: 0.25rem;
+			color: var(--bs-secondary-color);
+			font-size: 0.875rem;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container dashboard-container my-4">
+		<div class="row g-3">
+
+			<div id="header-dashboard-header" class="col-12 dashboard-element dashboard-element-header">
+
+				<template data-dashboard-element-template="header-dashboard-header">
+<div class="mb-4"><h1 class="h3 mb-2">Baseball Team Performance Across Eras</h1><div class="text-muted">Use this dashboard to compare how team wins, scoring, pitching, and standout seasons evolved over time.</div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-wins" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-wins">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Total Team Wins</h6><div class="text-muted small mb-2">The combined number of wins by teams in the selected scope.</div><div id="metric-wins-value" class="metric-value-number">0</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-runs" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-runs">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Total Runs Scored</h6><div class="text-muted small mb-2">The combined runs scored by teams in the selected scope.</div><div class="metric-value-number" id="metric-runs-value">—</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-runs-allowed" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-runs-allowed">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Total Runs Allowed</h6><div class="text-muted small mb-2">The combined runs allowed by teams in the selected scope.</div><div id="metric-runs-allowed-value" class="metric-value-number">—</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="metric-best-season" class="col-12 col-md-6 dashboard-element dashboard-element-metric">
+
+				<template data-dashboard-element-template="metric-best-season">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Best Team Season</h6><div class="text-muted small mb-2">The single standout team season with the strongest performance in the selected scope.</div><div class="metric-value-number" id="metric-best-season-value">—</div><div class="text-muted small mt-2" id="metric-best-season-label">Team</div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-era-summary" class="col-12 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-era-summary">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Team Performance by Era</h6><div class="text-muted small mb-2">Compare average team wins, runs scored, and runs allowed across eras to show how overall team performance changed over time.</div><div style="position: relative; height: 420px; width: 100%;"><canvas id="chart-era-summary-canvas"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-era-scorers" class="col-12 col-md-6 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-era-scorers">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Offensive Output by Era</h6><div class="text-muted small mb-3">Show how team scoring changed across eras using average runs per team season by era.</div><div style="position: relative; height: 400px; width: 100%;"><canvas id="chart-era-scorers-canvas"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="chart-era-pitching" class="col-12 col-md-6 dashboard-element dashboard-element-chart">
+
+				<template data-dashboard-element-template="chart-era-pitching">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Pitching Run Prevention by Era</h6><p class="text-muted small mb-3">Show how team run prevention changed across eras using average runs allowed and team ERA by era.</p><div style="position: relative; height: 360px; width: 100%;"><canvas id="chart-era-pitching-canvas" aria-label="Pitching Run Prevention by Era" role="img"></canvas></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="table-standout-seasons" class="col-12 col-md-6 dashboard-element dashboard-element-table">
+
+				<template data-dashboard-element-template="table-standout-seasons">
+<div class="card h-100"><div class="card-body"><div class="d-flex flex-column gap-1"><div><h6 class="card-title fw-semibold mb-1">Standout Team Seasons</h6><div class="text-muted small">Rank the best individual team seasons by wins, runs scored, and run differential to highlight exceptional seasons across history.</div></div></div><div class="table-responsive mt-3"><table class="table table-hover align-middle mb-0"><thead><tr><th scope="col">Year</th><th scope="col">Team</th><th scope="col" class="text-end">Wins</th><th scope="col" class="text-end">Runs Scored</th><th scope="col" class="text-end">Runs Allowed</th><th scope="col" class="text-end">Run Differential</th><th scope="col">League</th></tr></thead><tbody id="table-standout-seasons-table-body"></tbody></table></div></div></div>
+				</template>
+
+			</div>
+
+			<div id="insight-era-shifts" class="col-12 col-md-6 dashboard-element dashboard-element-insight">
+
+				<template data-dashboard-element-template="insight-era-shifts">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-2">Era shifts in team performance</h6><div class="text-muted small mb-3">Compare team-level wins, runs scored, runs allowed, and run differential across broad historical eras to identify how performance profiles changed over time.</div><ul class="mb-0"><li><strong>Wins rose after the dead-ball era.</strong> Average team wins jump from about <strong>53.3</strong> in <strong>1871-1900</strong> to the mid-to-high <strong>70s</strong> in every later era, peaking at about <strong>80.6</strong> in <strong>1961-1980</strong>.</li><li><strong>Scoring shifted by era, but not monotonically.</strong> Average runs scored were highest in <strong>1921-1940</strong> at about <strong>752.5</strong>, then dropped in <strong>1941-1960</strong> and <strong>1961-1980</strong>, before rising again in <strong>1981-2000</strong> and <strong>2001-2022</strong> to roughly <strong>708-713</strong>.</li><li><strong>Runs allowed closely matched runs scored in every era shown.</strong> The averages are essentially identical within each era, which means the excerpt does <strong>not</strong> show a broad era-level scoring edge from offense over pitching or vice versa.</li><li><strong>Run differential is flat in the aggregates.</strong> The reported average run differential is <strong>0 or near 0</strong> across all eras, so this excerpt suggests league-wide balance rather than a dominant scoring environment at the era level.</li><li><strong>Best overall win profile appears in the modern-mid era.</strong> Of the eras shown, <strong>1961-1980</strong> combines the highest average wins with relatively modest runs scored/allowed, while <strong>2001-2022</strong> shows slightly lower wins but higher scoring than the late 20th century.</li></ul></div></div>
+				</template>
+
+			</div>
+
+			<div id="insight-standout-seasons" class="col-12 col-md-6 dashboard-element dashboard-element-insight">
+
+				<template data-dashboard-element-template="insight-standout-seasons">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">Standout team seasons</h6><div class="text-muted small mb-3">Surface the most exceptional single-season team performances by wins and run differential so users can spot peak seasons while exploring era changes.</div><ul><li><strong>Best record in the excerpt:</strong> the 1906 Chicago Cubs went 116-36, the most wins shown, with a strong +323 run differential.</li><li><strong>Modern-era contender:</strong> the 2001 Seattle Mariners also won 116 games, scoring 927 runs and allowing 627, for a +300 differential.</li><li><strong>Largest run differential:</strong> the 1927 New York Yankees stand out with +376, even though they had one fewer win than the top two seasons.</li><li><strong>Other elite seasons span multiple eras:</strong> the 1998 Yankees, 2022 Dodgers, 1954 Cleveland, 1909 Pirates, and 1969 Orioles all reached at least 109 wins.</li><li><strong>Scoring vs. prevention:</strong> the biggest seasons combine high run totals with strong pitching/defense, but the balance varies—some teams won through dominant scoring (1927 NYA: 975 runs scored), while others paired solid scoring with excellent run suppression (2022 LAN: 847 scored, 513 allowed).</li></ul></div></div>
+				</template>
+
+			</div>
+
+			<div id="text-reading-note" class="col-12 col-md-6 dashboard-element dashboard-element-text">
+
+				<template data-dashboard-element-template="text-reading-note">
+<div class="card h-100"><div class="card-body"><h6 class="card-title fw-semibold mb-1">How to read this section</h6><p class="text-muted small mb-0">Use this section to compare team-level season totals across time. The era view shows aggregate patterns, while the standout seasons view highlights individual peak years.</p></div></div>
+				</template>
+
+			</div>
+
+		</div>
+	</div>
+
+	<script>
+	window.dashboardData = {
+
+
+
+
+		"metric-wins": [
+  {
+    "total_wins": 225144
+  }
+],
+
+
+
+		"metric-runs": [
+  {
+    "total_runs_scored": 2053694
+  }
+],
+
+
+
+		"metric-runs-allowed": [
+  {
+    "total_runs_allowed": 2053691
+  }
+],
+
+
+
+		"metric-best-season": [
+  {
+    "team_name": "Chicago Cubs",
+    "year": 1906,
+    "win_total": 116
+  }
+],
+
+
+
+		"chart-era-summary": [
+  {
+    "era": "1871-1900",
+    "avg_team_wins": 53.32114882506527,
+    "avg_runs_scored": 631.6631853785901,
+    "avg_runs_allowed": 631.6631853785901
+  },
+  {
+    "era": "1901-1920",
+    "avg_team_wins": 74.17857142857143,
+    "avg_runs_scored": 594.8571428571429,
+    "avg_runs_allowed": 594.8482142857143
+  },
+  {
+    "era": "1921-1940",
+    "avg_team_wins": 76.4875,
+    "avg_runs_scored": 752.5375,
+    "avg_runs_allowed": 752.5375
+  },
+  {
+    "era": "1941-1960",
+    "avg_team_wins": 76.8625,
+    "avg_runs_scored": 674.2,
+    "avg_runs_allowed": 674.2
+  },
+  {
+    "era": "1961-1980",
+    "avg_team_wins": 80.58590308370044,
+    "avg_runs_scored": 663.0176211453745,
+    "avg_runs_allowed": 663.0176211453745
+  },
+  {
+    "era": "1981-2000",
+    "avg_team_wins": 77.91328413284133,
+    "avg_runs_scored": 707.9852398523985,
+    "avg_runs_allowed": 707.9852398523985
+  },
+  {
+    "era": "2001-2022",
+    "avg_team_wins": 78.6530303030303,
+    "avg_runs_scored": 713.0318181818182,
+    "avg_runs_allowed": 713.0318181818182
+  }
+],
+
+
+
+		"chart-era-scorers": [
+  {
+    "era": "1871-1919",
+    "avg_team_runs_scored": 613.1351351351351,
+    "team_seasons": 703
+  },
+  {
+    "era": "1920-1945",
+    "avg_team_runs_scored": 728.5336538461538,
+    "team_seasons": 416
+  },
+  {
+    "era": "1946-1969",
+    "avg_team_runs_scored": 669.5971563981043,
+    "team_seasons": 422
+  },
+  {
+    "era": "1970-1999",
+    "avg_team_runs_scored": 690.6186224489796,
+    "team_seasons": 784
+  },
+  {
+    "era": "2000-2022",
+    "avg_team_runs_scored": 718.2202898550725,
+    "team_seasons": 690
+  }
+],
+
+
+
+		"chart-era-pitching": [
+  {
+    "era": "1920-1940",
+    "avg_runs_allowed": 748.7321428571429,
+    "avg_team_era": 1920
+  },
+  {
+    "era": "2000-2022",
+    "avg_runs_allowed": 718.2202898550725,
+    "avg_team_era": 2000
+  },
+  {
+    "era": "1980-1999",
+    "avg_runs_allowed": 700.3903345724907,
+    "avg_team_era": 1980
+  },
+  {
+    "era": "1941-1960",
+    "avg_runs_allowed": 674.2,
+    "avg_team_era": 1941
+  },
+  {
+    "era": "1961-1979",
+    "avg_runs_allowed": 661.1144859813085,
+    "avg_team_era": 1961
+  },
+  {
+    "era": "1871-1919",
+    "avg_runs_allowed": 613.1351351351351,
+    "avg_team_era": 1871
+  }
+],
+
+
+
+		"table-standout-seasons": [
+  {
+    "year": 1906,
+    "team_name": "Chicago Cubs",
+    "wins": 116,
+    "runs_scored": 704,
+    "runs_allowed": 381,
+    "run_differential": 323,
+    "league": "NL"
+  },
+  {
+    "year": 2001,
+    "team_name": "Seattle Mariners",
+    "wins": 116,
+    "runs_scored": 927,
+    "runs_allowed": 627,
+    "run_differential": 300,
+    "league": "AL"
+  },
+  {
+    "year": 1998,
+    "team_name": "New York Yankees",
+    "wins": 114,
+    "runs_scored": 965,
+    "runs_allowed": 656,
+    "run_differential": 309,
+    "league": "AL"
+  },
+  {
+    "year": 2022,
+    "team_name": "Los Angeles Dodgers",
+    "wins": 111,
+    "runs_scored": 847,
+    "runs_allowed": 513,
+    "run_differential": 334,
+    "league": "NL"
+  },
+  {
+    "year": 1954,
+    "team_name": "Cleveland Indians",
+    "wins": 111,
+    "runs_scored": 746,
+    "runs_allowed": 504,
+    "run_differential": 242,
+    "league": "AL"
+  },
+  {
+    "year": 1927,
+    "team_name": "New York Yankees",
+    "wins": 110,
+    "runs_scored": 975,
+    "runs_allowed": 599,
+    "run_differential": 376,
+    "league": "AL"
+  },
+  {
+    "year": 1909,
+    "team_name": "Pittsburgh Pirates",
+    "wins": 110,
+    "runs_scored": 699,
+    "runs_allowed": 447,
+    "run_differential": 252,
+    "league": "NL"
+  },
+  {
+    "year": 1969,
+    "team_name": "Baltimore Orioles",
+    "wins": 109,
+    "runs_scored": 779,
+    "runs_allowed": 517,
+    "run_differential": 262,
+    "league": "AL"
+  },
+  {
+    "year": 1961,
+    "team_name": "New York Yankees",
+    "wins": 109,
+    "runs_scored": 827,
+    "runs_allowed": 612,
+    "run_differential": 215,
+    "league": "AL"
+  },
+  {
+    "year": 1975,
+    "team_name": "Cincinnati Reds",
+    "wins": 108,
+    "runs_scored": 840,
+    "runs_allowed": 586,
+    "run_differential": 254,
+    "league": "NL"
+  },
+  {
+    "year": 2018,
+    "team_name": "Boston Red Sox",
+    "wins": 108,
+    "runs_scored": 876,
+    "runs_allowed": 647,
+    "run_differential": 229,
+    "league": "AL"
+  },
+  {
+    "year": 1970,
+    "team_name": "Baltimore Orioles",
+    "wins": 108,
+    "runs_scored": 792,
+    "runs_allowed": 574,
+    "run_differential": 218,
+    "league": "AL"
+  },
+  {
+    "year": 1986,
+    "team_name": "New York Mets",
+    "wins": 108,
+    "runs_scored": 783,
+    "runs_allowed": 578,
+    "run_differential": 205,
+    "league": "NL"
+  },
+  {
+    "year": 2019,
+    "team_name": "Houston Astros",
+    "wins": 107,
+    "runs_scored": 920,
+    "runs_allowed": 640,
+    "run_differential": 280,
+    "league": "AL"
+  },
+  {
+    "year": 1932,
+    "team_name": "New York Yankees",
+    "wins": 107,
+    "runs_scored": 1002,
+    "runs_allowed": 724,
+    "run_differential": 278,
+    "league": "AL"
+  },
+  {
+    "year": 1931,
+    "team_name": "Philadelphia Athletics",
+    "wins": 107,
+    "runs_scored": 858,
+    "runs_allowed": 626,
+    "run_differential": 232,
+    "league": "AL"
+  },
+  {
+    "year": 2021,
+    "team_name": "San Francisco Giants",
+    "wins": 107,
+    "runs_scored": 804,
+    "runs_allowed": 594,
+    "run_differential": 210,
+    "league": "NL"
+  },
+  {
+    "year": 1907,
+    "team_name": "Chicago Cubs",
+    "wins": 107,
+    "runs_scored": 574,
+    "runs_allowed": 390,
+    "run_differential": 184,
+    "league": "NL"
+  },
+  {
+    "year": 1939,
+    "team_name": "New York Yankees",
+    "wins": 106,
+    "runs_scored": 967,
+    "runs_allowed": 556,
+    "run_differential": 411,
+    "league": "AL"
+  },
+  {
+    "year": 1942,
+    "team_name": "St. Louis Cardinals",
+    "wins": 106,
+    "runs_scored": 755,
+    "runs_allowed": 482,
+    "run_differential": 273,
+    "league": "NL"
+  }
+],
+
+
+
+		"insight-era-shifts": [
+  {
+    "era_label": "1871-1900",
+    "avg_team_wins": 53.32114882506527,
+    "avg_runs_scored": 631.6631853785901,
+    "avg_runs_allowed": 631.6631853785901,
+    "avg_run_differential": 0
+  },
+  {
+    "era_label": "1901-1920",
+    "avg_team_wins": 74.17857142857143,
+    "avg_runs_scored": 594.8571428571429,
+    "avg_runs_allowed": 594.8482142857143,
+    "avg_run_differential": 0.008928571428571428
+  },
+  {
+    "era_label": "1921-1940",
+    "avg_team_wins": 76.4875,
+    "avg_runs_scored": 752.5375,
+    "avg_runs_allowed": 752.5375,
+    "avg_run_differential": 0
+  },
+  {
+    "era_label": "1941-1960",
+    "avg_team_wins": 76.8625,
+    "avg_runs_scored": 674.2,
+    "avg_runs_allowed": 674.2,
+    "avg_run_differential": 0
+  },
+  {
+    "era_label": "1961-1980",
+    "avg_team_wins": 80.58590308370044,
+    "avg_runs_scored": 663.0176211453745,
+    "avg_runs_allowed": 663.0176211453745,
+    "avg_run_differential": 0
+  },
+  {
+    "era_label": "1981-2000",
+    "avg_team_wins": 77.91328413284133,
+    "avg_runs_scored": 707.9852398523985,
+    "avg_runs_allowed": 707.9852398523985,
+    "avg_run_differential": 0
+  },
+  {
+    "era_label": "2001-2022",
+    "avg_team_wins": 78.6530303030303,
+    "avg_runs_scored": 713.0318181818182,
+    "avg_runs_allowed": 713.0318181818182,
+    "avg_run_differential": 0
+  }
+],
+
+
+
+		"insight-standout-seasons": [
+  {
+    "year": 1906,
+    "team": "CHN",
+    "wins": 116,
+    "losses": 36,
+    "runs_scored": 704,
+    "runs_allowed": 381,
+    "run_differential": 323
+  },
+  {
+    "year": 2001,
+    "team": "SEA",
+    "wins": 116,
+    "losses": 46,
+    "runs_scored": 927,
+    "runs_allowed": 627,
+    "run_differential": 300
+  },
+  {
+    "year": 1998,
+    "team": "NYA",
+    "wins": 114,
+    "losses": 48,
+    "runs_scored": 965,
+    "runs_allowed": 656,
+    "run_differential": 309
+  },
+  {
+    "year": 2022,
+    "team": "LAN",
+    "wins": 111,
+    "losses": 51,
+    "runs_scored": 847,
+    "runs_allowed": 513,
+    "run_differential": 334
+  },
+  {
+    "year": 1954,
+    "team": "CLE",
+    "wins": 111,
+    "losses": 43,
+    "runs_scored": 746,
+    "runs_allowed": 504,
+    "run_differential": 242
+  },
+  {
+    "year": 1927,
+    "team": "NYA",
+    "wins": 110,
+    "losses": 44,
+    "runs_scored": 975,
+    "runs_allowed": 599,
+    "run_differential": 376
+  },
+  {
+    "year": 1909,
+    "team": "PIT",
+    "wins": 110,
+    "losses": 42,
+    "runs_scored": 699,
+    "runs_allowed": 447,
+    "run_differential": 252
+  },
+  {
+    "year": 1969,
+    "team": "BAL",
+    "wins": 109,
+    "losses": 53,
+    "runs_scored": 779,
+    "runs_allowed": 517,
+    "run_differential": 262
+  },
+  {
+    "year": 1961,
+    "team": "NYA",
+    "wins": 109,
+    "losses": 53,
+    "runs_scored": 827,
+    "runs_allowed": 612,
+    "run_differential": 215
+  },
+  {
+    "year": 1975,
+    "team": "CIN",
+    "wins": 108,
+    "losses": 54,
+    "runs_scored": 840,
+    "runs_allowed": 586,
+    "run_differential": 254
+  }
+],
+
+
+
+
+	};
+
+document.addEventListener('DOMContentLoaded', () => {
+	for (const template of document.querySelectorAll('template[data-dashboard-element-template]')) {
+		const target = document.getElementById(template.dataset.dashboardElementTemplate);
+		if (target) {
+			target.replaceChildren(template.content.cloneNode(true));
+		}
+	}
+
+	const getData = (key) => window.dashboardData?.[key] ?? [];
+	const firstRow = (key) => {
+		const rows = getData(key);
+		return Array.isArray(rows) ? rows[0] : rows;
+	};
+	const formatNumber = (value, maximumFractionDigits = 0) => {
+		const number = Number(value);
+		return Number.isFinite(number) ? new Intl.NumberFormat(undefined, { maximumFractionDigits }).format(number) : '-';
+	};
+	const formatCurrency = (value, currency = 'USD') => {
+		const number = Number(value);
+		return Number.isFinite(number) ? new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(number) : '-';
+	};
+	const formatPercent = (value, maximumFractionDigits = 1) => {
+		const number = Number(value);
+		return Number.isFinite(number) ? formatNumber(number, maximumFractionDigits) + '%' : '-';
+	};
+	const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({
+		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+	}[char]));
+	const elementScripts = [
+
+
+
+
+		{
+			id: "metric-wins",
+			script: "const row = firstRow('metric-wins');\nconst value = row && row['total_wins'] != null ? row['total_wins'] : 0;\nconst el = document.getElementById('metric-wins-value');\nif (el) {\n  el.textContent = formatNumber(value, 0);\n}",
+		},
+
+
+
+		{
+			id: "metric-runs",
+			script: "const dataKey = \"metric-runs\";\nconst row = firstRow(dataKey);\nif (row) {\n  const value = row[\"total_runs_scored\"];\n  const el = document.getElementById(\"metric-runs-value\");\n  if (el) {\n    el.textContent = (typeof value === \"number\") ? formatNumber(value, 0) : \"—\";\n  }\n}",
+		},
+
+
+
+		{
+			id: "metric-runs-allowed",
+			script: "const rows = getData(\"metric-runs-allowed\");\nconst row = rows && rows.length ? firstRow(\"metric-runs-allowed\") : null;\nconst value = row && row.total_runs_allowed != null ? row.total_runs_allowed : null;\ndocument.getElementById(\"metric-runs-allowed-value\").textContent = value != null ? formatNumber(value, 0) : \"—\";",
+		},
+
+
+
+		{
+			id: "metric-best-season",
+			script: "const key = \"metric-best-season\";\nconst row = firstRow(key);\nif (row) {\n  const valueEl = document.getElementById(key + \"-value\");\n  const labelEl = document.getElementById(key + \"-label\");\n  if (valueEl) valueEl.textContent = formatNumber(row[\"win_total\"], 0);\n  if (labelEl) labelEl.textContent = row[\"team_name\"] + \" (\" + formatNumber(row[\"year\"], 0) + \")\";\n}",
+		},
+
+
+
+		{
+			id: "chart-era-summary",
+			script: "const rows = getData(\"chart-era-summary\") || [];\nconst canvas = document.getElementById(\"chart-era-summary-canvas\");\nif (!canvas) {\n  return;\n}\nif (!rows || rows.length < 2) {\n  const cardBody = canvas.closest('.card-body');\n  if (cardBody) {\n    cardBody.innerHTML = \"\";\n    const r = firstRow(\"chart-era-summary\") || {};\n    const era = r.era != null ? escapeHtml(String(r.era)) : \"\";\n    const wins = r.avg_team_wins;\n    const scored = r.avg_runs_scored;\n    const allowed = r.avg_runs_allowed;\n    cardBody.innerHTML = `\n      <div class=\"text-muted small mb-2\">Team Performance by Era</div>\n      <div class=\"fw-semibold mb-1\">${era}</div>\n      <div class=\"small mb-1\">Avg Wins: ${wins == null ? '-' : formatNumber(wins, 1)}</div>\n      <div class=\"small mb-1\">Avg Runs Scored: ${scored == null ? '-' : formatNumber(scored, 1)}</div>\n      <div class=\"small\">Avg Runs Allowed: ${allowed == null ? '-' : formatNumber(allowed, 1)}</div>\n    `;\n  }\n} else {\n  const ordered = rows.slice(0, 12);\n  const labels = ordered.map(r => r.era == null ? '' : String(r.era));\n  const avgWins = ordered.map(r => (r.avg_team_wins == null ? null : Number(r.avg_team_wins)));\n  const avgRunsScored = ordered.map(r => (r.avg_runs_scored == null ? null : Number(r.avg_runs_scored)));\n  const avgRunsAllowed = ordered.map(r => (r.avg_runs_allowed == null ? null : Number(r.avg_runs_allowed)));\n\n  const hasAllowedDifferent = ordered.some((r, i) => {\n    const a = r.avg_runs_allowed;\n    const s = r.avg_runs_scored;\n    return a != null && s != null && Number(a) !== Number(s);\n  });\n\n  const datasets = [];\n  datasets.push({\n    label: \"Avg Wins\",\n    data: avgWins,\n    backgroundColor: \"rgba(13, 110, 253, 0.55)\",\n    borderColor: \"rgba(13, 110, 253, 1)\",\n    borderWidth: 1,\n    yAxisID: \"y\",\n    xAxisID: \"x\"\n  });\n\n  if (hasAllowedDifferent) {\n    datasets.push({\n      label: \"Avg Runs Scored\",\n      data: avgRunsScored,\n      backgroundColor: \"rgba(25, 135, 84, 0.55)\",\n      borderColor: \"rgba(25, 135, 84, 1)\",\n      borderWidth: 1,\n      yAxisID: \"y\",\n      xAxisID: \"x2\"\n    });\n    datasets.push({\n      label: \"Avg Runs Allowed\",\n      data: avgRunsAllowed,\n      backgroundColor: \"rgba(220, 53, 69, 0.45)\",\n      borderColor: \"rgba(220, 53, 69, 1)\",\n      borderWidth: 1,\n      yAxisID: \"y\",\n      xAxisID: \"x2\"\n    });\n  } else {\n    datasets.push({\n      label: \"Avg Runs\",\n      data: avgRunsScored,\n      backgroundColor: \"rgba(25, 135, 84, 0.55)\",\n      borderColor: \"rgba(25, 135, 84, 1)\",\n      borderWidth: 1,\n      yAxisID: \"y\",\n      xAxisID: \"x2\"\n    });\n  }\n\n  const chartId = \"chart-era-summary-chart\";\n  if (canvas.dataset.chartInstance === '1') {\n    canvas._chart && canvas._chart.destroy();\n  }\n\n  const ctx = canvas.getContext('2d');\n  const config = {\n    type: 'bar',\n    data: {\n      labels,\n      datasets\n    },\n    options: {\n      responsive: true,\n      maintainAspectRatio: false,\n      indexAxis: 'y',\n      plugins: {\n        legend: {\n          display: datasets.length > 1\n        },\n        tooltip: {\n          callbacks: {\n            label: function(context) {\n              const val = context.parsed.x;\n              if (val == null || Number.isNaN(val)) return `${context.dataset.label}: -`;\n              return `${context.dataset.label}: ${formatNumber(val, 1)}`;\n            }\n          }\n        }\n      },\n      scales: {\n        y: {\n          grid: {\n            display: false\n          },\n          ticks: {\n            autoSkip: false\n          }\n        },\n        x: {\n          beginAtZero: true,\n          ticks: {\n            callback: function(value) {\n              return formatNumber(value, 0);\n            }\n          }\n        },\n        x2: {\n          beginAtZero: true,\n          position: 'top',\n          grid: {\n            drawOnChartArea: false\n          },\n          ticks: {\n            callback: function(value) {\n              return formatNumber(value, 0);\n            }\n          }\n        }\n      }\n    }\n  };\n\n  canvas.dataset.chartInstance = '1';\n  canvas._chart = new Chart(ctx, config);\n}",
+		},
+
+
+
+		{
+			id: "chart-era-scorers",
+			script: "const key = \"chart-era-scorers\";\nconst rows = getData(key) || [];\nconst ctx = document.getElementById(\"chart-era-scorers-canvas\");\nif (!ctx) {\n  return;\n}\n\nconst dataRows = rows.slice(0, 12);\n\nconst labels = dataRows.map(r => r.era);\nconst avgRuns = dataRows.map(r => r.avg_team_runs_scored);\nconst teamSeasons = dataRows.map(r => r.team_seasons);\n\nconst hasSecondDataset = avgRuns.length > 0 && teamSeasons.length > 0;\n\nconst chartType = \"bar\";\n\nconst chartConfig = {\n  type: chartType,\n  data: {\n    labels: labels,\n    datasets: hasSecondDataset\n      ? [\n          {\n            label: \"Avg Team Runs Scored\",\n            data: avgRuns,\n            backgroundColor: \"rgba(13, 110, 253, 0.45)\",\n            borderColor: \"rgba(13, 110, 253, 1)\",\n            borderWidth: 1,\n            yAxisID: \"y\",\n            xAxisID: \"x\",\n            order: 1\n          },\n          {\n            label: \"Team Seasons\",\n            data: teamSeasons,\n            backgroundColor: \"rgba(25, 135, 84, 0.35)\",\n            borderColor: \"rgba(25, 135, 84, 1)\",\n            borderWidth: 1,\n            yAxisID: \"y2\",\n            xAxisID: \"x2\",\n            order: 0\n          }\n        ]\n      : [\n          {\n            label: \"Avg Team Runs Scored\",\n            data: avgRuns,\n            backgroundColor: \"rgba(13, 110, 253, 0.45)\",\n            borderColor: \"rgba(13, 110, 253, 1)\",\n            borderWidth: 1,\n            yAxisID: \"y\",\n            xAxisID: \"x\",\n            order: 1\n          }\n        ]\n  },\n  options: {\n    responsive: true,\n    maintainAspectRatio: false,\n    indexAxis: \"y\",\n    interaction: {\n      mode: \"nearest\",\n      intersect: false\n    },\n    plugins: {\n      legend: {\n        display: false\n      },\n      tooltip: {\n        callbacks: {\n          label: function(context) {\n            const label = context.dataset && context.dataset.label ? context.dataset.label : \"\";\n            const val = context.raw;\n            if (context.dataset && context.dataset.yAxisID === \"y2\") {\n              return (label ? label + \": \" : \"\") + formatNumber(val, 0);\n            }\n            return (label ? label + \": \" : \"\") + formatNumber(val, 2);\n          }\n        }\n      }\n    },\n    scales: {\n      x: {\n        id: \"x\",\n        beginAtZero: true,\n        grid: {\n          drawOnChartArea: true\n        },\n        ticks: {\n          callback: function(value) {\n            return formatNumber(value, 0);\n          }\n        }\n      },\n      y: {\n        id: \"y\",\n        grid: {\n          display: false\n        },\n        ticks: {\n          autoSkip: false,\n          maxRotation: 0,\n          minRotation: 0\n        }\n      },\n      x2: {\n        id: \"x2\",\n        beginAtZero: true,\n        grid: {\n          drawOnChartArea: false\n        },\n        ticks: {\n          callback: function(value) {\n            return formatNumber(value, 0);\n          }\n        }\n      },\n      y2: {\n        id: \"y2\",\n        position: \"right\",\n        grid: {\n          drawOnChartArea: false\n        },\n        ticks: {\n          display: false\n        }\n      }\n    }\n  }\n};\n\nnew Chart(ctx, chartConfig);",
+		},
+
+
+
+		{
+			id: "chart-era-pitching",
+			script: "const key = \"chart-era-pitching\";\nconst rows = getData(key) || [];\nconst el = document.getElementById(key + \"-canvas\");\nif (!el) {\n  return;\n}\nif (!rows || rows.length < 2) {\n  const container = el.closest('.card-body');\n  if (container && !container.querySelector('#' + key + '-fallback')) {\n    const fallback = document.createElement('div');\n    fallback.id = key + '-fallback';\n    fallback.className = 'small text-muted';\n    fallback.textContent = 'Not enough data to render the chart.';\n    container.appendChild(fallback);\n  }\n  return;\n}\n\nconst ordered = rows.slice(0);\nordered.sort((a, b) => {\n  const ay = a['avg_team_era'];\n  const by = b['avg_team_era'];\n  const an = typeof ay === 'number' ? ay : Number(ay);\n  const bn = typeof by === 'number' ? by : Number(by);\n  if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn;\n  return 0;\n});\n\nconst sliced = ordered.slice(0, 12);\nconst labels = sliced.map(r => r['era']);\nconst avgRunsAllowed = sliced.map(r => r['avg_runs_allowed']);\nconst avgTeamEra = sliced.map(r => r['avg_team_era']);\n\nconst ctx = el.getContext('2d');\n\nconst chart = new Chart(ctx, {\n  type: 'bar',\n  data: {\n    labels,\n    datasets: [\n      {\n        label: 'Avg Runs Allowed',\n        data: avgRunsAllowed,\n        borderWidth: 0,\n        backgroundColor: 'rgba(13, 110, 253, 0.65)',\n        yAxisID: 'y',\n        xAxisID: 'x'\n      },\n      {\n        label: 'Team ERA Start Year (avg_team_era)',\n        data: avgTeamEra,\n        borderWidth: 0,\n        backgroundColor: 'rgba(25, 135, 84, 0.55)',\n        yAxisID: 'y',\n        xAxisID: 'x2'\n      }\n    ]\n  },\n  options: {\n    responsive: true,\n    maintainAspectRatio: false,\n    indexAxis: 'y',\n    plugins: {\n      legend: {\n        display: sliced.length >= 1\n      },\n      tooltip: {\n        callbacks: {\n          label: function(context) {\n            const v = context.parsed.x;\n            if (context.datasetIndex === 0) {\n              return 'Avg Runs Allowed: ' + formatNumber(v, 2);\n            }\n            return 'Team ERA Start Year: ' + formatNumber(v, 0);\n          }\n        }\n      }\n    },\n    scales: {\n      x: {\n        beginAtZero: true,\n        grid: {\n          drawOnChartArea: true\n        },\n        ticks: {\n          callback: function(value) {\n            return formatNumber(value, 0);\n          }\n        }\n      },\n      x2: {\n        position: 'top',\n        beginAtZero: true,\n        grid: {\n          drawOnChartArea: false\n        },\n        ticks: {\n          callback: function(value) {\n            return formatNumber(value, 0);\n          }\n        }\n      },\n      y: {\n        grid: {\n          display: false\n        },\n        ticks: {\n          autoSkip: false,\n          maxRotation: 0,\n          minRotation: 0\n        }\n      }\n    }\n  }\n});",
+		},
+
+
+
+		{
+			id: "table-standout-seasons",
+			script: "const rows = getData(\"table-standout-seasons\") || [];\nconst tbody = document.getElementById(\"table-standout-seasons-table-body\");\ntbody.innerHTML = \"\";\nconst slice = rows.slice(0, 15);\nfor (const r of slice) {\n  const tr = document.createElement(\"tr\");\n\n  const tdYear = document.createElement(\"td\");\n  tdYear.textContent = r.year;\n  tr.appendChild(tdYear);\n\n  const tdTeam = document.createElement(\"td\");\n  tdTeam.textContent = r.team_name;\n  tr.appendChild(tdTeam);\n\n  const tdWins = document.createElement(\"td\");\n  tdWins.className = \"text-end\";\n  tdWins.textContent = formatNumber(r.wins, 0);\n  tr.appendChild(tdWins);\n\n  const tdRunsScored = document.createElement(\"td\");\n  tdRunsScored.className = \"text-end\";\n  tdRunsScored.textContent = formatNumber(r.runs_scored, 0);\n  tr.appendChild(tdRunsScored);\n\n  const tdRunsAllowed = document.createElement(\"td\");\n  tdRunsAllowed.className = \"text-end\";\n  tdRunsAllowed.textContent = formatNumber(r.runs_allowed, 0);\n  tr.appendChild(tdRunsAllowed);\n\n  const tdDiff = document.createElement(\"td\");\n  tdDiff.className = \"text-end\";\n  tdDiff.textContent = formatNumber(r.run_differential, 0);\n  tr.appendChild(tdDiff);\n\n  const tdLeague = document.createElement(\"td\");\n  tdLeague.textContent = r.league;\n  tr.appendChild(tdLeague);\n\n  tbody.appendChild(tr);\n}",
+		},
+
+
+
+
+
+
+
+
+	];
+	for (const elementScript of elementScripts) {
+		try {
+			new Function(
+				'getData',
+				'firstRow',
+				'formatNumber',
+				'formatCurrency',
+				'formatPercent',
+				'escapeHtml',
+				elementScript.script
+			)(getData, firstRow, formatNumber, formatCurrency, formatPercent, escapeHtml);
+		} catch (error) {
+			console.error('Dashboard element failed:', elementScript.id, error);
+		}
+	}
+});
+	</script>
+</body>
+
+</html>

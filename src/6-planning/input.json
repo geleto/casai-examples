@@ -1,5 +1,5 @@
 {
-	"activeScenario": "itis_taxonomy_coverage",
+	"activeScenario": "lahman_team_eras",
 	"scenarios": {
 		"sakila_rental_activity": {
 			"name": "Sakila rental activity",
