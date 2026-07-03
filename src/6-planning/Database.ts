@@ -30,6 +30,14 @@ interface IndexColumnInfo {
 	name: string;
 }
 
+interface ColumnProfile {
+	samples?: unknown[];
+	range?: {
+		min: unknown;
+		max: unknown;
+	};
+}
+
 export interface SqlExecutionResult {
 	ok: boolean;
 	rows: unknown[];
@@ -157,20 +165,8 @@ export class Database {
 				name: tableName,
 				rowCount,
 				columns: pragmaRows.map((col) => {
-					// Fetch samples
-					let samples: unknown[] = [];
-					try {
-						const rows = db
-							.prepare<[], { val: unknown }>(
-								`SELECT DISTINCT "${col.name}" as val FROM "${escaped}" WHERE "${col.name}" IS NOT NULL LIMIT 3`
-							)
-							.all();
-						samples = rows.map((r) => r.val);
-					} catch {
-						// Ignore errors during sample fetching
-					}
-
 					const fkInfo = fkMap.get(col.name);
+					const profile = profileColumn(db, escaped, col, rowCount, Boolean(fkInfo));
 
 					return {
 						name: col.name,
@@ -178,7 +174,8 @@ export class Database {
 						pk: col.pk === 1,
 						fk: fkInfo ? fkInfo.target : undefined,
 						cardinality: fkInfo ? fkInfo.cardinality : undefined,
-						samples,
+						samples: profile.samples,
+						range: profile.range,
 					};
 				}),
 				foreignKeys: foreignKeys.map((fk) => ({
@@ -221,6 +218,70 @@ export class Database {
 	close(): void {
 		this.db?.close();
 	}
+}
+
+export type SchemaMetadata = ReturnType<Database['getSchemaMetadata']>;
+
+export function createSchemaMetadataForTables(schemaMetadata: SchemaMetadata) {
+	const tableNamesInSchemaOrder = (tableNames: string[]) => {
+		const selectedNames = new Set(tableNames.map(name => name.toLowerCase()));
+		return schemaMetadata.tables.filter(table => selectedNames.has(table.name.toLowerCase()));
+	};
+	return (requiredTableNames: string[] = []) => {
+		const selectedTables = tableNamesInSchemaOrder(requiredTableNames);
+		return selectedTables.length == 0
+			? schemaMetadata
+			: { ...schemaMetadata, tables: selectedTables };
+	};
+}
+
+function profileColumn(
+	db: Sqlite.Database,
+	escapedTableName: string,
+	col: ColumnInfo,
+	rowCount: number,
+	isForeignKey: boolean
+): ColumnProfile {
+	if (rowCount == 0 || col.pk == 1 || isForeignKey || isIdentifierColumn(col)) return {};
+
+	const escapedColumnName = col.name.replace(/"/g, '""');
+	const expression = `"${escapedColumnName}"`;
+	try {
+		if (isNumericColumn(col) || isDateLikeColumn(col)) {
+			const range = db
+				.prepare<[], { min: unknown; max: unknown }>(
+					`SELECT MIN(${expression}) AS min, MAX(${expression}) AS max FROM "${escapedTableName}" WHERE ${expression} IS NOT NULL`
+				)
+				.get();
+			return range?.min == null && range?.max == null ? {} : { range };
+		}
+
+		const rows = db
+			.prepare<[], { val: unknown }>(
+				`SELECT DISTINCT ${expression} AS val FROM "${escapedTableName}" WHERE ${expression} IS NOT NULL AND TRIM(CAST(${expression} AS TEXT)) <> '' LIMIT 3`
+			)
+			.all();
+		return { samples: rows.map(row => compactSample(row.val)) };
+	} catch {
+		return {};
+	}
+}
+
+function isNumericColumn(col: ColumnInfo): boolean {
+	return /INT|REAL|FLOA|DOUB|NUM|DEC/i.test(col.type ?? '') && !/id$/i.test(col.name);
+}
+
+function isIdentifierColumn(col: ColumnInfo): boolean {
+	const name = col.name.toLowerCase();
+	return !isDateLikeColumn(col) && (name == 'id' || name.endsWith('_id') || name == 'tsn' || name.endsWith('_tsn'));
+}
+
+function isDateLikeColumn(col: ColumnInfo): boolean {
+	return /(date|time|year)/i.test(col.name);
+}
+
+function compactSample(value: unknown): unknown {
+	return typeof value == 'string' && value.length > 60 ? `${value.slice(0, 57)}...` : value;
 }
 
 function isSqliteDatabase(buffer: Buffer): boolean {

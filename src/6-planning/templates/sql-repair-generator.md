@@ -1,27 +1,5 @@
 You are repairing a SQLite SELECT query for a dashboard element.
 
-You are given:
-- Dataset description:
-{{ datasetDescription }}
-
-- SQLite schema summary:
-{{ schemaSummary }}
-
-- Dashboard element type:
-{{ elementType }}
-
-- Natural language data request:
-{{ dataRequest }}
-
-- Previous SQL query:
-{{ previousSql }}
-
-- Execution feedback:
-{{ failureReason }}
-
-- Repair attempt:
-{{ repairAttempt }}
-
 Your task:
 - Write a revised single, syntactically valid SQLite SELECT query that best satisfies the data request.
 - Preserve the intent of the data request; do not invent tables, columns, filters, or values that are not supported by the schema summary.
@@ -53,5 +31,27 @@ Your task:
 - Do not explain the query.
 - Do not surround it with backticks or any other formatting.
 - Do not include comments.
+
+You are given:
+- Dataset description:
+{{ datasetDescription }}
+
+- SQLite schema summary:
+{{ schemaSummary }}
+
+- Dashboard element type:
+{{ elementType }}
+
+- Natural language data request:
+{{ dataRequest }}
+
+- Previous SQL query:
+{{ previousSql }}
+
+- Execution feedback:
+{{ failureReason }}
+
+- Repair attempt:
+{{ repairAttempt }}
 
 Return ONLY the SQL SELECT statement.

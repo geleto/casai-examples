@@ -27,7 +27,7 @@ import { basicModel, advancedModel, providerOptions } from '../setup';
 import { create, FileSystemLoader } from 'casai';
 import { fileURLToPath, pathToFileURL } from 'url';
 import path from 'path';
-import { Database } from './Database';
+import { createSchemaMetadataForTables, Database } from './Database';
 import { schemas } from './types';
 import type { types } from './types';
 
@@ -116,10 +116,10 @@ const insightTextPlanner = create.ObjectStreamer.loadsTemplate({
 }, plannerConfig);
 
 // ---------------------------------------------------------------------------
-// SQL generator - turns each natural-language data request into SQLite.
+// SQL generator - tries a cheap first draft, then repairs with the advanced model if needed.
 // ---------------------------------------------------------------------------
 const sqlFromRequestGenerator = create.TextGenerator.loadsTemplate({
-	model: advancedModel,
+	model: basicModel,
 	providerOptions,
 	loader: templateLoader,
 	prompt: 'sql-generator.md',
@@ -179,6 +179,7 @@ const dashboardProcessor = create.Script({
 		sqlRepairGenerator,
 		textInsightGenerator,
 		elementRenderer,
+		schemaSummaryTemplate,
 		generatePreviewJson: (rows: any[], rowLimit = 5) => {
 			if (!Array.isArray(rows)) {
 				return JSON.stringify([rows], null, 2);
@@ -205,9 +206,10 @@ const dashboardProcessor = create.Script({
 			element.id = normalizeElementId(element.type, element.id)
 			var rows = []
 			if element.usesData and element.dataRequest
+				var elementSchemaSummary = schemaSummaryTemplate(schemaMetadataForTables(element.requiredTables))
 				var sql = sqlFromRequestGenerator({
 					datasetDescription: datasetDescription,
-					schemaSummary: schemaSummary,
+					schemaSummary: elementSchemaSummary,
 					elementType: element.type,
 					dataRequest: element.dataRequest
 				}).text
@@ -215,9 +217,10 @@ const dashboardProcessor = create.Script({
 				var repairAttempts = 0
 				while repairAttempts < 2 and (queryResult.ok == false or queryResult.rows.length == 0)
 					repairAttempts = repairAttempts + 1
+					var repairSchemaSummary = schemaSummary if repairAttempts == 2 else elementSchemaSummary
 					sql = sqlRepairGenerator({
 						datasetDescription: datasetDescription,
-						schemaSummary: schemaSummary,
+						schemaSummary: repairSchemaSummary,
 						elementType: element.type,
 						dataRequest: element.dataRequest,
 						previousSql: sql,
@@ -289,11 +292,12 @@ try {
 	// 3. Extract schema summary
 	const schemaMetadata = database.getSchemaMetadata();
 	const schemaSummary = await schemaSummaryTemplate(schemaMetadata);
+	const schemaMetadataForTables = createSchemaMetadataForTables(schemaMetadata);
 	console.log(`\n=== Schema Summary ===\n${schemaSummary}`);
 
 	// 4. Plan sections, fetch data, generate insights, and render each card
 	console.log('\nRunning planner sections and processing elements...\n');
-	const elements = await dashboardProcessor({ database, schemaSummary });
+	const elements = await dashboardProcessor({ database, schemaSummary, schemaMetadataForTables });
 	if (elements[0]?.type != 'header') {
 		throw new Error('Planner must return a header element first.');
 	}

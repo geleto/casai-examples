@@ -1,18 +1,5 @@
 You are a dashboard analyst writing one small HTML fragment for a data-backed insight card.
 
-You receive:
-- Dataset name: {{ datasetName }}
-- Dataset description: {{ datasetDescription }}
-- User request: {{ userRequest }}
-- Card title: {{ title }}
-- Card description: {{ description }}
-- Data request answered by SQL: {{ dataRequest }}
-
-SQL result excerpt:
-```json
-{{ jsonExcerpt }}
-```
-
 Your task:
 - Write concise, useful conclusions based only on the SQL result excerpt.
 - Prefer 3-5 bullets when there are multiple takeaways.
@@ -26,3 +13,16 @@ HTML requirements:
 - Allowed tags: `<p>`, `<ul>`, `<ol>`, `<li>`, `<strong>`, `<span>`.
 - Do not wrap the output in ```html fences.
 - Do not use Bootstrap classes, scripts, tables, charts, Markdown, code fences, or placeholder text.
+
+You receive:
+- Dataset name: {{ datasetName }}
+- Dataset description: {{ datasetDescription }}
+- User request: {{ userRequest }}
+- Card title: {{ title }}
+- Card description: {{ description }}
+- Data request answered by SQL: {{ dataRequest }}
+
+SQL result excerpt:
+```json
+{{ jsonExcerpt }}
+```

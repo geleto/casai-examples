@@ -45,6 +45,8 @@ interface ModelCallStats {
 	totalDurationMs: number;
 	inputTokens: number;
 	outputTokens: number;
+	cacheReadTokens: number;
+	cacheWriteTokens: number;
 }
 
 const modelStats = new Map<string, ModelCallStats>();
@@ -67,6 +69,8 @@ function getModelStats(modelName: string): ModelCallStats {
 			totalDurationMs: 0,
 			inputTokens: 0,
 			outputTokens: 0,
+			cacheReadTokens: 0,
+			cacheWriteTokens: 0,
 		};
 		modelStats.set(modelName, stats);
 	}
@@ -85,12 +89,17 @@ function getTokenCount(val: unknown): number {
 function getUsageCounts(usage: LanguageModelV3Usage | undefined) {
 	const inputTokens = getTokenCount(usage?.inputTokens);
 	const outputTokens = getTokenCount(usage?.outputTokens);
-	return { inputTokens, outputTokens };
+	const cacheReadTokens = usage?.inputTokens.cacheRead ?? 0;
+	const cacheWriteTokens = usage?.inputTokens.cacheWrite ?? 0;
+	return { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens };
 }
 
-function formatTokenUsage(inputTokens: number, outputTokens: number) {
+function formatTokenUsage(inputTokens: number, outputTokens: number, cacheReadTokens = 0, cacheWriteTokens = 0) {
 	const totalTokens = inputTokens + outputTokens;
-	return `${totalTokens.toLocaleString()} tokens (${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out)`;
+	const cacheSuffix = cacheReadTokens || cacheWriteTokens
+		? `, ${cacheReadTokens.toLocaleString()} cache read + ${cacheWriteTokens.toLocaleString()} cache write`
+		: '';
+	return `${totalTokens.toLocaleString()} tokens (${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out${cacheSuffix})`;
 }
 
 function formatSeconds(ms: number) {
@@ -99,9 +108,11 @@ function formatSeconds(ms: number) {
 
 function recordModelUsage(modelName: string, usage: LanguageModelV3Usage | undefined) {
 	const stats = getModelStats(modelName);
-	const { inputTokens, outputTokens } = getUsageCounts(usage);
+	const { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens } = getUsageCounts(usage);
 	stats.inputTokens += inputTokens;
 	stats.outputTokens += outputTokens;
+	stats.cacheReadTokens += cacheReadTokens;
+	stats.cacheWriteTokens += cacheWriteTokens;
 }
 
 function printModelStatsSummary() {
@@ -113,6 +124,8 @@ function printModelStatsSummary() {
 	const statsEntries = Array.from(modelStats.entries());
 	const totalInputTokens = statsEntries.reduce((total, [, stats]) => total + stats.inputTokens, 0);
 	const totalOutputTokens = statsEntries.reduce((total, [, stats]) => total + stats.outputTokens, 0);
+	const totalCacheReadTokens = statsEntries.reduce((total, [, stats]) => total + stats.cacheReadTokens, 0);
+	const totalCacheWriteTokens = statsEntries.reduce((total, [, stats]) => total + stats.cacheWriteTokens, 0);
 	const totalDurationMs = statsEntries.reduce((total, [, stats]) => total + stats.totalDurationMs, 0);
 	const activeDurationMs = totalActiveDurationMs + (activePeriodStartTime ? Date.now() - activePeriodStartTime : 0);
 	const averageConcurrency = activeDurationMs > 0 ? totalDurationMs / activeDurationMs : 0;
@@ -121,11 +134,11 @@ function printModelStatsSummary() {
 	process.stdout.write(
 		`[LLM] LLM concurrency speedup: ${averageConcurrency.toFixed(2)}x (${formatSeconds(totalDurationMs)} summed call time / ${formatSeconds(activeDurationMs)} active elapsed)\n`
 	);
-	process.stdout.write(`[LLM] Total tokens: ${formatTokenUsage(totalInputTokens, totalOutputTokens)}\n`);
+	process.stdout.write(`[LLM] Total tokens: ${formatTokenUsage(totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheWriteTokens)}\n`);
 
 	statsEntries.forEach(([name, stats]) => {
 		process.stdout.write(
-			`[LLM] ${name}: max ${stats.maxActive}, calls ${stats.started}, time ${formatSeconds(stats.totalDurationMs)}, tokens ${formatTokenUsage(stats.inputTokens, stats.outputTokens)}\n`
+			`[LLM] ${name}: max ${stats.maxActive}, calls ${stats.started}, time ${formatSeconds(stats.totalDurationMs)}, tokens ${formatTokenUsage(stats.inputTokens, stats.outputTokens, stats.cacheReadTokens, stats.cacheWriteTokens)}\n`
 		);
 	});
 }
@@ -233,8 +246,8 @@ function logCompletion(
 ) {
 	const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-	const { inputTokens, outputTokens } = getUsageCounts(usage);
-	const tokenInfo = formatTokenUsage(inputTokens, outputTokens);
+	const { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens } = getUsageCounts(usage);
+	const tokenInfo = formatTokenUsage(inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens);
 
 	let resultSuffix = '';
 	if (text) {

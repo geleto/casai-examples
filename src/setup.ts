@@ -24,6 +24,9 @@ export const basicProviderName = 'openai';
 export const advancedProviderName = advancedModelSettings.providerName;
 
 export const providerOptions = {
+	openai: {
+		promptCacheKey: 'casai-examples',
+	},
 	anthropic: {
 		structuredOutputMode: 'jsonTool' as const,
 	},
