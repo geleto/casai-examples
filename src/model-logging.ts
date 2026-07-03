@@ -36,6 +36,13 @@ import {
 const PREVIEW_LIMIT = 40;
 const TOOL_RESULT_PREVIEW_LIMIT = 100;
 
+export interface ModelPricing {
+	inputUsdPerMillion: number;
+	cachedInputUsdPerMillion?: number;
+	cacheWriteUsdPerMillion?: number;
+	outputUsdPerMillion: number;
+}
+
 interface ModelCallStats {
 	started: number;
 	completed: number;
@@ -47,6 +54,7 @@ interface ModelCallStats {
 	outputTokens: number;
 	cacheReadTokens: number;
 	cacheWriteTokens: number;
+	pricing?: ModelPricing;
 }
 
 const modelStats = new Map<string, ModelCallStats>();
@@ -57,7 +65,7 @@ let totalActiveDurationMs = 0;
 let summaryLoggerRegistered = false;
 let summaryPrinted = false;
 
-function getModelStats(modelName: string): ModelCallStats {
+function getModelStats(modelName: string, pricing?: ModelPricing): ModelCallStats {
 	let stats = modelStats.get(modelName);
 	if (!stats) {
 		stats = {
@@ -71,8 +79,11 @@ function getModelStats(modelName: string): ModelCallStats {
 			outputTokens: 0,
 			cacheReadTokens: 0,
 			cacheWriteTokens: 0,
+			pricing,
 		};
 		modelStats.set(modelName, stats);
+	} else if (pricing && !stats.pricing) {
+		stats.pricing = pricing;
 	}
 	return stats;
 }
@@ -102,6 +113,36 @@ function formatTokenUsage(inputTokens: number, outputTokens: number, cacheReadTo
 	return `${totalTokens.toLocaleString()} tokens (${inputTokens.toLocaleString()} in + ${outputTokens.toLocaleString()} out${cacheSuffix})`;
 }
 
+function estimateCostUsd(pricing: ModelPricing | undefined, inputTokens: number, outputTokens: number, cacheReadTokens = 0, cacheWriteTokens = 0) {
+	if (!pricing) return undefined;
+
+	const uncachedInputTokens = Math.max(0, inputTokens - cacheReadTokens - cacheWriteTokens);
+	const cacheReadRate = pricing.cachedInputUsdPerMillion ?? pricing.inputUsdPerMillion;
+	const cacheWriteRate = pricing.cacheWriteUsdPerMillion ?? pricing.inputUsdPerMillion;
+	return (
+		(uncachedInputTokens * pricing.inputUsdPerMillion
+			+ cacheReadTokens * cacheReadRate
+			+ cacheWriteTokens * cacheWriteRate
+			+ outputTokens * pricing.outputUsdPerMillion) / 1_000_000
+	);
+}
+
+function formatCostUsd(costUsd: number | undefined) {
+	if (costUsd === undefined) return '';
+	return `, est. cost ${formatCostAmount(costUsd)}`;
+}
+
+function formatCostAmount(costUsd: number | undefined) {
+	if (costUsd === undefined) return 'unavailable';
+	return `$${costUsd.toFixed(costUsd < 1 ? 4 : 2)}`;
+}
+
+function sumCosts(costs: Array<number | undefined>) {
+	return costs.every(cost => cost !== undefined)
+		? costs.reduce((total, cost) => total + cost, 0)
+		: undefined;
+}
+
 function formatSeconds(ms: number) {
 	return `${(ms / 1000).toFixed(2)}s`;
 }
@@ -127,6 +168,9 @@ function printModelStatsSummary() {
 	const totalCacheReadTokens = statsEntries.reduce((total, [, stats]) => total + stats.cacheReadTokens, 0);
 	const totalCacheWriteTokens = statsEntries.reduce((total, [, stats]) => total + stats.cacheWriteTokens, 0);
 	const totalDurationMs = statsEntries.reduce((total, [, stats]) => total + stats.totalDurationMs, 0);
+	const totalCostUsd = sumCosts(statsEntries.map(([, stats]) =>
+		estimateCostUsd(stats.pricing, stats.inputTokens, stats.outputTokens, stats.cacheReadTokens, stats.cacheWriteTokens)
+	));
 	const activeDurationMs = totalActiveDurationMs + (activePeriodStartTime ? Date.now() - activePeriodStartTime : 0);
 	const averageConcurrency = activeDurationMs > 0 ? totalDurationMs / activeDurationMs : 0;
 
@@ -134,13 +178,16 @@ function printModelStatsSummary() {
 	process.stdout.write(
 		`[LLM] LLM concurrency speedup: ${averageConcurrency.toFixed(2)}x (${formatSeconds(totalDurationMs)} summed call time / ${formatSeconds(activeDurationMs)} active elapsed)\n`
 	);
-	process.stdout.write(`[LLM] Total tokens: ${formatTokenUsage(totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheWriteTokens)}\n`);
 
 	statsEntries.forEach(([name, stats]) => {
+		const costUsd = estimateCostUsd(stats.pricing, stats.inputTokens, stats.outputTokens, stats.cacheReadTokens, stats.cacheWriteTokens);
 		process.stdout.write(
-			`[LLM] ${name}: max ${stats.maxActive}, calls ${stats.started}, time ${formatSeconds(stats.totalDurationMs)}, tokens ${formatTokenUsage(stats.inputTokens, stats.outputTokens, stats.cacheReadTokens, stats.cacheWriteTokens)}\n`
+			`[LLM] ${name}: max ${stats.maxActive}, calls ${stats.started}, time ${formatSeconds(stats.totalDurationMs)}, tokens ${formatTokenUsage(stats.inputTokens, stats.outputTokens, stats.cacheReadTokens, stats.cacheWriteTokens)}${formatCostUsd(costUsd)}\n`
 		);
 	});
+
+	process.stdout.write(`[LLM] Total tokens: ${formatTokenUsage(totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheWriteTokens)}\n`);
+	process.stdout.write(`[LLM] Estimated total cost: ${formatCostAmount(totalCostUsd)}\n`);
 }
 
 function registerSummaryLogger() {
@@ -153,14 +200,14 @@ function registerSummaryLogger() {
 	process.once('exit', printModelStatsSummary);
 }
 
-function startModelCall(modelName: string): number {
+function startModelCall(modelName: string, pricing?: ModelPricing): number {
 	registerSummaryLogger();
 
 	if (totalActiveCalls === 0) {
 		activePeriodStartTime = Date.now();
 	}
 
-	const stats = getModelStats(modelName);
+	const stats = getModelStats(modelName, pricing);
 	stats.started++;
 	stats.active++;
 	stats.maxActive = Math.max(stats.maxActive, stats.active);
@@ -248,6 +295,7 @@ function logCompletion(
 
 	const { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens } = getUsageCounts(usage);
 	const tokenInfo = formatTokenUsage(inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens);
+	const costInfo = formatCostUsd(estimateCostUsd(getModelStats(modelName).pricing, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens));
 
 	let resultSuffix = '';
 	if (text) {
@@ -268,7 +316,7 @@ function logCompletion(
 	}
 
 	process.stdout.write(
-		`[${modelName} #${callId}] ✅ Complete ${mode}: ${tokenInfo} in ${duration}s | active: ${activeCalls}${finishInfo}${resultSuffix}\n`
+		`[${modelName} #${callId}] ✅ Complete ${mode}: ${tokenInfo}${costInfo} in ${duration}s | active: ${activeCalls}${finishInfo}${resultSuffix}\n`
 	);
 }
 
@@ -373,7 +421,8 @@ function formatPromptSuffix(preview: PromptPreview | undefined) {
 export function withProgressIndicator(
 	model: LanguageModelV3,
 	modelName: string,
-	showProgress = true
+	showProgress = true,
+	pricing?: ModelPricing
 ) {
 	if (!showProgress) {
 		return model;
@@ -390,7 +439,7 @@ export function withProgressIndicator(
 				const startTime = Date.now();
 				const promptSuffix = formatPromptSuffix(getPromptPreview(params));
 
-				const activeCalls = startModelCall(modelName);
+				const activeCalls = startModelCall(modelName, pricing);
 				process.stdout.write(
 					`[${modelName} #${callId}] 🚩 Start generating${promptSuffix} | active: ${activeCalls}\n`
 				);
@@ -460,7 +509,7 @@ export function withProgressIndicator(
 				const startTime = Date.now();
 				const promptSuffix = formatPromptSuffix(getPromptPreview(params));
 
-				const activeCalls = startModelCall(modelName);
+				const activeCalls = startModelCall(modelName, pricing);
 				process.stdout.write(
 					`[${modelName} #${callId}] 🚩 Start streaming${promptSuffix} | active: ${activeCalls}\n`
 				);
