@@ -114,6 +114,9 @@ export class Database {
 		const tableData = tables.map((table) => {
 			const tableName = table.name;
 			const escaped = tableName.replace(/"/g, '""');
+			const rowCount = db
+				.prepare<[], { count: number }>(`SELECT COUNT(*) AS count FROM "${escaped}"`)
+				.get()?.count ?? 0;
 			const pragmaRows = db
 				.prepare<[], ColumnInfo>(`PRAGMA table_info("${escaped}")`)
 				.all();
@@ -152,6 +155,7 @@ export class Database {
 
 			return {
 				name: tableName,
+				rowCount,
 				columns: pragmaRows.map((col) => {
 					// Fetch samples
 					let samples: unknown[] = [];

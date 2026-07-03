@@ -14,6 +14,7 @@ Your job:
 
 Header:
 - The first element must be `type: "header"`, `id: "dashboard-header"`, and `usesData: false`.
+- Set `dataRequest` to an empty string for the header.
 - Use the header `title` as the dashboard title.
 - Use the header `description` as a one-sentence subtitle explaining how to use the dashboard.
 - Do not put data findings, rankings, recommendations, or unsupported conclusions in the header.

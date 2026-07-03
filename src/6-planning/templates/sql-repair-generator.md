@@ -27,6 +27,7 @@ Your task:
 - Preserve the intent of the data request; do not invent tables, columns, filters, or values that are not supported by the schema summary.
 - If the previous query failed, directly fix the reported problem.
 - If the previous query returned zero rows, broaden or correct joins, filters, date logic, grouping, or ordering where reasonable.
+- If the previous query used a table shown with 0 rows in the schema summary, switch to a relevant non-empty table if one exists.
 - If the failed query uses a complex shape such as correlated subqueries, medians, percentiles, ranks, or quartiles, you may simplify the task by replacing optional advanced statistics with direct aggregate evidence such as counts, sums, averages, minimums, or maximums.
 - If one optional statistic is causing repeated failure, omit or replace that statistic rather than failing the whole element.
 - Do not fix alias or missing-column errors by only renaming aliases when the query structure itself may be the problem.

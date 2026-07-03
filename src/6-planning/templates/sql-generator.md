@@ -17,6 +17,7 @@ Your task:
 - Write a single, syntactically valid SQLite SELECT query that best satisfies the data request.
 - Only use tables and columns that appear in the schema summary.
 - Use the exact table and column names from the schema summary.
+- Avoid tables shown with 0 rows when another table can answer the request.
 - Do not invent missing columns, placeholder categories, or aliases that claim to measure an unavailable field.
 - Use SQLite syntax only; avoid functions from other databases.
 - Prefer direct, readable SQL. Use advanced statistics when they materially improve the requested analysis and can be expressed reliably in SQLite.

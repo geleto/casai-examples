@@ -22,6 +22,7 @@ Insights:
 
 Static guide text:
 - Use `type: "text"` with `usesData: false` only for orientation, metric definitions, methodology notes, caveats, section introductions, or instructions for reading the dashboard.
+- Set `dataRequest` to an empty string for static guide text.
 - Static text must not claim findings, recommendations, rankings, trends, or conclusions from the data.
 - Do not create placeholders such as "recommendations will appear later", "insights pending", or "analysis unavailable".
 

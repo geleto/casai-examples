@@ -44,4 +44,5 @@ Rules:
 - For `text`: render static explanatory content only; use `script: ""`.
 - For `other`: render a simple card; script only if data-backed.
 - Use only fields visible in `previewJson`.
+- For data-backed elements, access row fields using the exact property names visible in `previewJson`; do not invent camelCase or PascalCase variants unless those exact fields are present.
 - Do not use Markdown or code fences inside `html` or `script`.

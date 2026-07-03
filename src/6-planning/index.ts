@@ -228,7 +228,7 @@ const dashboardProcessor = create.Script({
 				endwhile
 				rows = queryResult.rows
 				element.previewJson = generatePreviewJson(rows)
-				if queryResult.ok == false or (element.type == "chart" and rows.length == 0)
+				if queryResult.ok == false or rows.length == 0
 					element.queryError = queryResult.error if queryResult.ok == false else "The query returned zero rows."
 					return element
 				endif

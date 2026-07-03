@@ -6,7 +6,7 @@ const dashboardElementSchema = z.object({
 	title: z.string().describe('Display title for the element'),
 	description: z.string().describe('Brief description of what this element shows'),
 	usesData: z.boolean().describe('Whether this element requires data fetching'),
-	dataRequest: z.string().optional().describe('Natural language description of needed data (if usesData is true)'),
+	dataRequest: z.string().describe('Natural language description of needed data, or an empty string if usesData is false'),
 });
 
 const processedElementSchema = dashboardElementSchema.extend({

@@ -5,9 +5,23 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { withProgressIndicator } from './model-logging';
 
 const showProgressIndicators = true;
+const advancedModelOptions = {
+	haiku: {
+		model: anthropic('claude-haiku-4-5'),
+		providerName: 'anthropic',
+		label: 'Claude-4.5-Haiku',
+	},
+	'gpt-mini': {
+		model: openai('gpt-5.4-mini'),
+		providerName: 'openai',
+		label: 'GPT-5.4-mini',
+	},
+} as const;
+const advancedModelChoice: keyof typeof advancedModelOptions = 'gpt-mini';
+const advancedModelSettings = advancedModelOptions[advancedModelChoice];
 
 export const basicProviderName = 'openai';
-export const advancedProviderName = 'anthropic';
+export const advancedProviderName = advancedModelSettings.providerName;
 
 export const providerOptions = {
 	anthropic: {
@@ -23,8 +37,8 @@ export const basicModel = withProgressIndicator(
 );
 
 export const advancedModel = withProgressIndicator(
-	anthropic('claude-haiku-4-5'),
-	'Claude-4.5-Haiku',
+	advancedModelSettings.model,
+	advancedModelSettings.label,
 	showProgressIndicators
 );
 
